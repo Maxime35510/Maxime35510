@@ -1,32 +1,23 @@
-<div align="center">
-
 # Maxime35510
 
 ```cmd
 C:\Users\Maxime35510> whoami
-
 Maxime35510
-AI tooling builder | Discord bot developer | cybersecurity-focused maker
+
+C:\Users\Maxime35510> about
+AI tooling builder
+Discord bot developer
+Cybersecurity-focused maker
 Singapore-based
+
+C:\Users\Maxime35510> current_focus
+[1] AI-assisted media utilities
+[2] Discord / community automation
+[3] Python, Batchfile, JavaScript, Node.js
+[4] cybersecurity learning + reliable tooling
 ```
 
-```cmd
-C:\Users\Maxime35510> systeminfo /profile
-
-[FOCUS]        AI-assisted tools, automation pipelines, Discord systems
-[STACK]        Python, Batchfile, JavaScript, Node.js, Discord.js, Shell
-[INTERESTS]    media automation, bot reliability, security workflows
-[MODE]         build small -> test hard -> automate the boring parts
-[STATUS]       learning, shipping, improving
-```
-
-</div>
-
----
-
-```cmd
-C:\Users\Maxime35510> dir .\projects
-```
+## Projects
 
 | Project | Type | What it does |
 |---|---|---|
@@ -36,73 +27,19 @@ C:\Users\Maxime35510> dir .\projects
 | [crow-bot](https://github.com/Maxime35510/crow-bot) | Discord / JS | Discord bot experimentation and community automation |
 | [qrcode](https://github.com/Maxime35510/qrcode) | Python | Small utility project for QR code generation |
 
----
-
-```cmd
-C:\Users\Maxime35510> type .\skills.txt
-```
+## Stack
 
 ```txt
-AI / automation
-- AI-assisted media workflows
-- subtitle extraction pipelines
-- audio-to-text fallback logic
-- resumable video processing
-- FFmpeg / Video2X / RealESRGAN workflows
-
-Programming
-- Python
-- JavaScript / Node.js
-- Batchfile
-- Shell scripting
-- API workflows
-
-Discord / community systems
-- Discord.js
-- command logic
-- bot reliability
-- support workflows
-- moderation / music tooling experiments
-
-Cyber mindset
-- network defence fundamentals
-- forensic thinking
-- permissions and access boundaries
-- safe logging
-- reliability as part of user trust
+AI / automation       subtitle pipelines, audio-to-text fallback, media workflows
+Programming           Python, JavaScript, Node.js, Batchfile, Shell
+Discord systems       Discord.js, command logic, bot reliability
+Cyber mindset         permissions, safe logging, network defence fundamentals
 ```
 
----
-
-```cmd
-C:\Users\Maxime35510> run current_focus.exe
-```
+## Links
 
 ```txt
-Building practical tools that turn messy workflows into repeatable systems.
-
-Current direction:
-1. AI-assisted media utilities
-2. Discord/community automation
-3. cybersecurity learning labs
-4. reliable scripts for real-world use
-```
-
----
-
-```cmd
-C:\Users\Maxime35510> netstat -links
-```
-
-```txt
-Portfolio   -> https://louming.dastot.net/
-LinkedIn    -> https://www.linkedin.com/in/lou-ming-dastot/
-GitHub      -> https://github.com/Maxime35510
-```
-
----
-
-```cmd
-C:\Users\Maxime35510> echo "I like tools that do useful work quietly."
-"I like tools that do useful work quietly."
+Portfolio   https://louming.dastot.net/
+LinkedIn    https://www.linkedin.com/in/lou-ming-dastot/
+GitHub      https://github.com/Maxime35510
 ```
