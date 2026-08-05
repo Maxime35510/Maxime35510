@@ -3,88 +3,75 @@ package com.warmup.tt;
 import android.accessibilityservice.AccessibilityService;
 import android.accessibilityservice.GestureDescription;
 import android.content.Context;
-import android.content.SharedPreferences;
 import android.graphics.Path;
+import android.os.Build;
+import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.DisplayMetrics;
 import android.view.WindowManager;
 import android.view.accessibility.AccessibilityEvent;
+import android.view.accessibility.AccessibilityNodeInfo;
 
-import java.util.LinkedHashMap;
-import java.util.Map;
 import java.util.Random;
 
 /**
- * Port of l-portet/tiktok-warmup-bot's scheduler.
+ * Session orchestrator.
  *
- * The original drives an iPhone by playing MP3s at iOS Voice Control. This does the
- * same thing natively: same action table, same intervals, same pause formula, but the
- * gestures go straight through AccessibilityService.dispatchGesture().
+ * Every cycle reads the screen first, decides second, acts third. Nothing is tapped
+ * without knowing what is under it, and the session pauses rather than dispatching
+ * gestures into whatever app happens to be in front.
  */
-public class WarmupService extends AccessibilityService {
+public class WarmupService extends AccessibilityService implements OverlayController.OnStop {
 
     public static volatile WarmupService instance;
 
-    /** {durationMs, minInterval, maxInterval} — verbatim from index.js VOICE_ACTIONS. */
-    static final Map<String, int[]> ACTIONS = new LinkedHashMap<String, int[]>();
-
-    /** Insertion order matters: index.js fires only the first threshold that matches. */
-    static final String[] ORDER = {
-        "swipePrevious", "likePost", "savePost", "openComments",
-        "openProfile", "openShop", "openInbox"
-    };
-
-    static {
-        ACTIONS.put("swipeNext",     new int[]{ 5000,  0,  0});
-        ACTIONS.put("swipePrevious", new int[]{ 5000,  4,  7});
-        ACTIONS.put("likePost",      new int[]{ 1500,  4,  7});
-        ACTIONS.put("savePost",      new int[]{ 5000,  4,  7});
-        ACTIONS.put("openComments",  new int[]{ 7000,  4,  7});
-        ACTIONS.put("openProfile",   new int[]{ 7000, 10, 15});
-        ACTIONS.put("openShop",      new int[]{15000, 30, 35});
-        ACTIONS.put("openInbox",     new int[]{15000, 30, 35});
-    }
-
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final Random rnd = new Random();
-    private final Map<String, Integer> thresholds = new LinkedHashMap<String, Integer>();
-    private final Map<String, Integer> stats = new LinkedHashMap<String, Integer>();
+
+    private Prefs prefs;
+    private Behavior behavior;
+    private ResearchLog research;
+    private OverlayController overlay;
 
     private boolean running = false;
-    private long endTime = 0L;
-    private int swipeCount = 0;
+    private boolean paused = false;
+    private long startTime, endTime;
+    private int videoCount = 0;
+    private int recoveries = 0;
+    private int sinceSearch = 0;
+    private int nextSearchAt = 0;
     private String lastAction = "-";
 
-    private int screenW = 1080;
-    private int screenH = 2400;
+    private int screenW = 1080, screenH = 2400;
+
+    // ------------------------------------------------------------ lifecycle
 
     @Override
     protected void onServiceConnected() {
         super.onServiceConnected();
         instance = this;
+        prefs = new Prefs(this);
+        research = new ResearchLog(this);
         measureScreen();
     }
 
     @Override
     public boolean onUnbind(android.content.Intent intent) {
-        stopSession();
+        stopSession("service unbound");
         instance = null;
         return super.onUnbind(intent);
     }
 
     @Override
     public void onDestroy() {
-        stopSession();
+        stopSession("service destroyed");
         instance = null;
         super.onDestroy();
     }
 
-    @Override
-    public void onAccessibilityEvent(AccessibilityEvent event) { }
-
-    @Override
-    public void onInterrupt() { }
+    @Override public void onAccessibilityEvent(AccessibilityEvent e) { }
+    @Override public void onInterrupt() { }
 
     private void measureScreen() {
         try {
@@ -96,193 +83,559 @@ public class WarmupService extends AccessibilityService {
         } catch (Throwable ignored) { }
     }
 
-    // ---------------------------------------------------------------- session
+    // -------------------------------------------------------------- session
 
     public void startSession(int minutes, int startDelaySeconds) {
         measureScreen();
+        prefs = new Prefs(this);
+        behavior = new Behavior(prefs.preset());
+        research = new ResearchLog(this);
+
+        ActionLog.reset();
         running = true;
-        swipeCount = 0;
-        stats.clear();
-        regenerateThresholds();
-        long delayMs = startDelaySeconds * 1000L;
-        endTime = System.currentTimeMillis() + delayMs + minutes * 60_000L;
+        paused = false;
+        videoCount = 0;
+        recoveries = 0;
+        sinceSearch = 0;
+        nextSearchAt = prefs.nicheEnabled() ? behavior.between(2, 6) : Integer.MAX_VALUE;
+
+        long delay = startDelaySeconds * 1000L;
+        long length = behavior.sessionLengthMs(minutes);
+        startTime = System.currentTimeMillis() + delay;
+        endTime = startTime + length;
+
+        ActionLog.add("session", "start, ~" + (length / 60000) + "m"
+                + (prefs.dryRun() ? " (DRY RUN)" : ""), false);
+
+        if (prefs.overlay()) {
+            if (overlay == null) overlay = new OverlayController(this, this);
+            overlay.show();
+        }
+        Notifications.show(this, "Warmup running",
+                prefs.dryRun() ? "Dry run - nothing will be tapped" : "Starting...");
+
         handler.postDelayed(new Runnable() {
-            @Override public void run() { step(); }
-        }, delayMs);
+            @Override public void run() { loop(); }
+        }, delay);
     }
 
-    public void stopSession() {
+    public void stopSession(String reason) {
+        if (running) ActionLog.add("session", "stopped (" + reason + ")", false);
         running = false;
+        paused = false;
         handler.removeCallbacksAndMessages(null);
+        if (overlay != null) overlay.hide();
+        Notifications.clear(this);
     }
 
-    public boolean isRunning() { return running; }
-    public int getSwipeCount() { return swipeCount; }
-    public String getLastAction() { return lastAction; }
+    @Override public void stop() { stopSession("overlay"); }
 
-    public long getRemainingMs() {
+    public boolean isRunning()     { return running; }
+    public boolean isPaused()      { return paused; }
+    public int     videoCount()    { return videoCount; }
+    public String  lastAction()    { return lastAction; }
+    public boolean dryRun()        { return prefs != null && prefs.dryRun(); }
+
+    public long remainingMs() {
         long r = endTime - System.currentTimeMillis();
         return r > 0 ? r : 0;
     }
 
-    public String getStatsLine() {
-        if (stats.isEmpty()) return "no actions yet";
-        StringBuilder sb = new StringBuilder();
-        for (Map.Entry<String, Integer> e : stats.entrySet()) {
-            if (sb.length() > 0) sb.append("  ");
-            sb.append(e.getKey()).append(" ").append(e.getValue());
+    private double progress() {
+        long total = endTime - startTime;
+        if (total <= 0) return 1.0;
+        double p = (System.currentTimeMillis() - startTime) / (double) total;
+        return p < 0 ? 0 : (p > 1 ? 1 : p);
+    }
+
+    private void tick(String state) {
+        lastAction = state;
+        if (overlay != null && overlay.isShown()) {
+            long s = remainingMs() / 1000;
+            overlay.update(paused ? "PAUSED" : (s / 60) + ":" + String.format("%02d", s % 60),
+                    paused);
         }
-        return sb.toString();
+        Notifications.show(this, paused ? "Warmup paused" : "Warmup running",
+                "video " + videoCount + "  -  " + state);
     }
 
-    // --------------------------------------------------------------- schedule
-
-    private int rand(int min, int max) {
-        return rnd.nextInt(max - min + 1) + min;
+    private void later(long ms, Runnable r) {
+        final Runnable rr = r;
+        handler.postDelayed(new Runnable() {
+            @Override public void run() { if (running) rr.run(); }
+        }, ms);
     }
 
-    /** Mirrors generateThresholds(): every interval action re-rolls off the current count. */
-    private void regenerateThresholds() {
-        thresholds.clear();
-        for (String key : ORDER) {
-            int[] a = ACTIONS.get(key);
-            thresholds.put(key, swipeCount + rand(a[1], a[2]));
-        }
-    }
+    // ----------------------------------------------------------- main cycle
 
-    /** Re-roll a single action, leaving the others' progress intact. */
-    private void regenerateOne(String key) {
-        int[] a = ACTIONS.get(key);
-        thresholds.put(key, swipeCount + rand(a[1], a[2]));
-    }
-
-    /**
-     * Mirrors the runWarmup() while-loop, one iteration per callback.
-     *
-     * Upstream re-rolls *every* threshold whenever any action fires, and matches on
-     * exact equality. Because four actions sit at interval 4-7, one of them always
-     * fires first and resets the counters, so openProfile (10-15), openShop and
-     * openInbox (30-35) can never be reached — they are dead in the original. Faithful
-     * mode reproduces that verbatim; otherwise only the fired action is re-rolled and
-     * matching is >=, which is what the interval table evidently intends.
-     */
-    private void step() {
+    private void loop() {
         if (!running) return;
         if (System.currentTimeMillis() >= endTime) {
-            stopSession();
+            stopSession("session complete");
+            return;
+        }
+        behavior.setProgress(progress());
+
+        final ScreenState st = ScreenState.capture(this, screenW, screenH);
+
+        if (!st.isTikTok()) {
+            if (!paused) {
+                paused = true;
+                ActionLog.add("paused", "TikTok not in foreground (" + shortPkg(st.pkg) + ")",
+                        false);
+            }
+            tick("waiting for TikTok");
+            later(3000, new Runnable() { @Override public void run() { loop(); } });
+            return;
+        }
+        if (paused) {
+            paused = false;
+            ActionLog.add("resumed", "TikTok is back", false);
+        }
+
+        if (st.screen != ScreenState.Screen.FEED) {
+            recoverToFeed(st, 0);
+            return;
+        }
+        recoveries = 0;
+
+        if (sinceSearch >= nextSearchAt && prefs.nicheEnabled()) {
+            sinceSearch = 0;
+            nextSearchAt = behavior.between(18, 40);
+            nicheSearch();
             return;
         }
 
-        swipeCount++;
-        perform("swipeNext", new Runnable() {
+        watchVideo(st);
+    }
+
+    private static String shortPkg(String p) {
+        if (p == null || p.length() == 0) return "unknown";
+        int i = p.lastIndexOf('.');
+        return i > 0 ? p.substring(i + 1) : p;
+    }
+
+    /**
+     * Get back to the feed from wherever we ended up. A single BACK is not enough:
+     * with the keyboard up it only closes the keyboard, which is exactly how the
+     * previous build ended up scrolling a comment list while believing it was on the
+     * feed.
+     */
+    private void recoverToFeed(ScreenState st, final int attempt) {
+        if (!running) return;
+        if (attempt >= 5) {
+            ActionLog.add("recover", "gave up after 5 attempts, on " + st.screen, false);
+            recoveries++;
+            if (recoveries >= 3) {
+                stopSession("cannot reach the feed");
+                return;
+            }
+            later(2000, new Runnable() { @Override public void run() { loop(); } });
+            return;
+        }
+
+        ActionLog.add("recover", "on " + st.screen
+                + (st.keyboardOpen ? " + keyboard" : "") + ", pressing back", prefs.dryRun());
+        tick("recovering");
+        back();
+
+        later(behavior.between(700, 1300), new Runnable() {
             @Override public void run() {
-                if (!running) return;
-
-                final boolean faithful = prefBool(Prefs.FAITHFUL, Prefs.D_FAITHFUL);
-
-                String found = null;
-                for (String key : ORDER) {
-                    Integer t = thresholds.get(key);
-                    if (t == null) continue;
-                    boolean hit = faithful ? (t.intValue() == swipeCount)
-                                           : (t.intValue() <= swipeCount);
-                    if (hit) { found = key; break; }
+                ScreenState now = ScreenState.capture(
+                        WarmupService.this, screenW, screenH);
+                if (!now.isTikTok() || now.screen == ScreenState.Screen.FEED) {
+                    loop();
+                } else {
+                    recoverToFeed(now, attempt + 1);
                 }
+            }
+        });
+    }
 
-                if (found == null) {
-                    step();
+    // --------------------------------------------------------- watch a video
+
+    private void watchVideo(final ScreenState st) {
+        videoCount++;
+        sinceSearch++;
+
+        if (prefs.research()) {
+            String[] row = st.researchRow();
+            research.record(row[0], row[1], row[2]);
+        }
+
+        final int watched = behavior.watchTimeMs();
+        ActionLog.add("watch", (watched / 1000.0) + "s", false);
+        tick("watching " + (watched / 1000) + "s");
+
+        later(watched, new Runnable() {
+            @Override public void run() { engage(watched); }
+        });
+    }
+
+    /** Every decision is gated on how long the video was actually watched. */
+    private void engage(final int watched) {
+        if (!running) return;
+
+        if (behavior.shouldOpenComments(watched)) {
+            openComments(watched);
+            return;
+        }
+        if (behavior.shouldOpenProfile(watched)) {
+            openProfile(watched);
+            return;
+        }
+        if (behavior.shouldSave(watched)) {
+            tapNamed("savePost", currentBookmark(), new Runnable() {
+                @Override public void run() { afterEngage(watched); }
+            });
+            return;
+        }
+        if (prefs.repost() && behavior.shouldRepost(watched)) {
+            repost(watched);
+            return;
+        }
+        if (behavior.shouldLike(watched)) {
+            likeByDoubleTap(new Runnable() {
+                @Override public void run() { afterEngage(watched); }
+            });
+            return;
+        }
+        afterEngage(watched);
+    }
+
+    private void afterEngage(int watched) {
+        int pause = behavior.microPauseMs();
+        if (pause > 0) {
+            ActionLog.add("pause", (pause / 1000) + "s idle", false);
+            tick("idle");
+            later(pause, new Runnable() { @Override public void run() { advance(); } });
+        } else {
+            later(behavior.reactionMs(), new Runnable() {
+                @Override public void run() { advance(); }
+            });
+        }
+    }
+
+    private void advance() {
+        if (!running) return;
+        if (behavior.shouldSwipeBack()) {
+            ActionLog.add("swipePrevious", "re-watch", prefs.dryRun());
+            swipe(false);
+            later(behavior.between(2500, 6000), new Runnable() {
+                @Override public void run() { swipe(true); afterSwipe(); }
+            });
+            return;
+        }
+        ActionLog.add("swipeNext", "", prefs.dryRun());
+        swipe(true);
+        afterSwipe();
+    }
+
+    private void afterSwipe() {
+        later(behavior.between(600, 1100), new Runnable() {
+            @Override public void run() { loop(); }
+        });
+    }
+
+    // ------------------------------------------------------------- comments
+
+    private void openComments(final int watched) {
+        ScreenState st = ScreenState.capture(this, screenW, screenH);
+        ScreenState.Item target = st.comment();
+        if (target == null) {
+            ActionLog.add("openComments", "button not found, skipped", true);
+            afterEngage(watched);
+            return;
+        }
+        final int count = st.commentCount();
+        ActionLog.add("openComments", count > 0 ? count + " comments" : "", prefs.dryRun());
+        tapItem(target);
+
+        later(behavior.between(900, 1600), new Runnable() {
+            @Override public void run() {
+                ScreenState now = ScreenState.capture(
+                        WarmupService.this, screenW, screenH);
+                int dwell = behavior.commentDwellMs(count > 0 ? count : now.commentCount());
+                tick("reading comments");
+
+                if (prefs.likeComments() && behavior.shouldLikeComment()) {
+                    likeAComment(now);
+                }
+                later(dwell, new Runnable() {
+                    @Override public void run() { closeSheet(watched, 0); }
+                });
+            }
+        });
+    }
+
+    /** Like one of the visible comments - a heart on the right of a comment row. */
+    private void likeAComment(ScreenState st) {
+        ScreenState.Item best = null;
+        for (ScreenState.Item it : st.items) {
+            if (!it.clickable) continue;
+            if (it.cx() < st.width * 0.80) continue;
+            if (it.cy() < st.height * 0.30 || it.cy() > st.height * 0.80) continue;
+            if (it.bounds.width() > st.width * 0.20) continue;
+            if (best == null || it.cy() < best.cy()) best = it;
+        }
+        if (best == null) {
+            ActionLog.add("likeComment", "no comment heart found", true);
+            return;
+        }
+        ActionLog.add("likeComment", "", prefs.dryRun());
+        tapItem(best);
+    }
+
+    /** Close the sheet and verify we actually made it back to the feed. */
+    private void closeSheet(final int watched, final int attempt) {
+        if (!running) return;
+        if (attempt >= 4) {
+            ActionLog.add("closeComments", "could not confirm feed", false);
+            afterEngage(watched);
+            return;
+        }
+        back();
+        later(behavior.between(600, 1100), new Runnable() {
+            @Override public void run() {
+                ScreenState now = ScreenState.capture(
+                        WarmupService.this, screenW, screenH);
+                if (now.screen == ScreenState.Screen.FEED || !now.isTikTok()) {
+                    afterEngage(watched);
+                } else {
+                    closeSheet(watched, attempt + 1);
+                }
+            }
+        });
+    }
+
+    // -------------------------------------------------------------- profile
+
+    private void openProfile(final int watched) {
+        ScreenState st = ScreenState.capture(this, screenW, screenH);
+        ScreenState.Item target = st.avatar();
+        if (target == null) {
+            ActionLog.add("openProfile", "avatar not found, skipped", true);
+            afterEngage(watched);
+            return;
+        }
+        ActionLog.add("openProfile", "", prefs.dryRun());
+        tapItem(target);
+        tick("on a profile");
+
+        later(behavior.profileDwellMs(), new Runnable() {
+            @Override public void run() { closeSheet(watched, 0); }
+        });
+    }
+
+    // --------------------------------------------------------------- repost
+
+    private void repost(final int watched) {
+        ScreenState st = ScreenState.capture(this, screenW, screenH);
+        ScreenState.Item share = st.share();
+        if (share == null) {
+            afterEngage(watched);
+            return;
+        }
+        ActionLog.add("repost", "opening share sheet", prefs.dryRun());
+        tapItem(share);
+
+        later(behavior.between(1000, 1800), new Runnable() {
+            @Override public void run() {
+                ScreenState now = ScreenState.capture(
+                        WarmupService.this, screenW, screenH);
+                ScreenState.Item rp = null;
+                for (ScreenState.Item it : now.items) {
+                    if (it.text.contains("repost") || it.desc.contains("repost")) { rp = it; break; }
+                }
+                if (rp != null) {
+                    ActionLog.add("repost", "confirmed", prefs.dryRun());
+                    tapItem(rp);
+                    later(behavior.between(800, 1400), new Runnable() {
+                        @Override public void run() { closeSheet(watched, 0); }
+                    });
+                } else {
+                    ActionLog.add("repost", "no repost option, backing out", true);
+                    closeSheet(watched, 0);
+                }
+            }
+        });
+    }
+
+    // ---------------------------------------------------------- niche search
+
+    private void nicheSearch() {
+        String[] terms = prefs.nicheTerms();
+        if (terms.length == 0) { loop(); return; }
+        final String term = terms[rnd.nextInt(terms.length)];
+
+        ScreenState st = ScreenState.capture(this, screenW, screenH);
+        ScreenState.Item searchBtn = st.search();
+        if (searchBtn == null) {
+            ActionLog.add("nicheSearch", "search button not found, skipped", true);
+            loop();
+            return;
+        }
+        ActionLog.add("nicheSearch", term, prefs.dryRun());
+        tick("searching");
+        tapItem(searchBtn);
+
+        later(behavior.between(1100, 1900), new Runnable() {
+            @Override public void run() {
+                if (!prefs.dryRun() && !typeIntoField(term)) {
+                    ActionLog.add("nicheSearch", "no input field, backing out", true);
+                    closeSheet(0, 0);
                     return;
                 }
-
-                final String fired = found;
-                perform(fired, new Runnable() {
+                later(behavior.between(700, 1400), new Runnable() {
                     @Override public void run() {
-                        if (faithful) regenerateThresholds();
-                        else regenerateOne(fired);
-                        step();
+                        submitSearch();
+                        later(behavior.searchDwellMs(), new Runnable() {
+                            @Override public void run() { browseResults(); }
+                        });
                     }
                 });
             }
         });
     }
 
-    /** Mirrors perform(): dispatch, then wait duration + random(1000,4000). */
-    private void perform(String key, final Runnable done) {
-        int[] a = ACTIONS.get(key);
-        lastAction = key;
-        Integer prev = stats.get(key);
-        stats.put(key, (prev == null ? 0 : prev) + 1);
-
-        dispatchFor(key, a[0]);
-
-        long wait = a[0] + rand(1000, 4000);
-        handler.postDelayed(new Runnable() {
-            @Override public void run() { if (running) done.run(); }
-        }, wait);
-    }
-
-    // --------------------------------------------------------------- gestures
-
-    private void dispatchFor(String key, int durationMs) {
-        if ("swipeNext".equals(key))          { swipe(true); }
-        else if ("swipePrevious".equals(key)) { swipe(false); }
-        else if ("likePost".equals(key))      { doubleTapCentre(); }
-        else if ("savePost".equals(key))      { tapFrac(railX(), saveY()); }
-        else if ("openComments".equals(key))  { tapFrac(railX(), commentY()); back(durationMs - 1500); }
-        else if ("openProfile".equals(key))   { tapFrac(railX(), profileY()); back(durationMs - 1500); }
-        else if ("openShop".equals(key))      { tapFrac(shopX(), navY());    back(durationMs - 2000); }
-        else if ("openInbox".equals(key))     { tapFrac(inboxX(), navY());   back(durationMs - 2000); }
-    }
-
-    /** Return to the feed before the pause elapses, so the next swipe starts from a known state. */
-    private void back(int delayMs) {
-        final int d = delayMs < 800 ? 800 : delayMs;
-        handler.postDelayed(new Runnable() {
+    /** Scroll the results a little, then return to the feed. */
+    private void browseResults() {
+        ActionLog.add("nicheSearch", "browsing results", prefs.dryRun());
+        swipe(true);
+        later(behavior.between(2500, 6000), new Runnable() {
             @Override public void run() {
-                if (running) performGlobalAction(GLOBAL_ACTION_BACK);
+                swipe(true);
+                later(behavior.between(2500, 6000), new Runnable() {
+                    @Override public void run() { closeSheet(0, 0); }
+                });
             }
-        }, d);
+        });
     }
 
-    private float jitter(float span) {
-        return (rnd.nextFloat() - 0.5f) * span;
+    private boolean typeIntoField(String text) {
+        AccessibilityNodeInfo root = null;
+        try {
+            root = getRootInActiveWindow();
+            AccessibilityNodeInfo field = findEditable(root, 0);
+            if (field == null) return false;
+            Bundle args = new Bundle();
+            args.putCharSequence(
+                    AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, text);
+            boolean ok = field.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args);
+            try { field.recycle(); } catch (Throwable ignored) { }
+            return ok;
+        } catch (Throwable t) {
+            return false;
+        } finally {
+            if (root != null) try { root.recycle(); } catch (Throwable ignored) { }
+        }
     }
+
+    private AccessibilityNodeInfo findEditable(AccessibilityNodeInfo node, int depth) {
+        if (node == null || depth > 40) return null;
+        try {
+            if (node.isEditable()) return AccessibilityNodeInfo.obtain(node);
+            for (int i = 0; i < node.getChildCount(); i++) {
+                AccessibilityNodeInfo c = node.getChild(i);
+                if (c == null) continue;
+                AccessibilityNodeInfo hit = findEditable(c, depth + 1);
+                try { c.recycle(); } catch (Throwable ignored) { }
+                if (hit != null) return hit;
+            }
+        } catch (Throwable ignored) { }
+        return null;
+    }
+
+    private void submitSearch() {
+        if (prefs.dryRun()) { ActionLog.add("nicheSearch", "would submit", true); return; }
+        AccessibilityNodeInfo root = null;
+        try {
+            root = getRootInActiveWindow();
+            AccessibilityNodeInfo field = findEditable(root, 0);
+            if (field != null) {
+                if (Build.VERSION.SDK_INT >= 30) {
+                    field.performAction(AccessibilityNodeInfo.AccessibilityAction
+                            .ACTION_IME_ENTER.getId());
+                }
+                try { field.recycle(); } catch (Throwable ignored) { }
+            }
+        } catch (Throwable ignored) {
+        } finally {
+            if (root != null) try { root.recycle(); } catch (Throwable ignored) { }
+        }
+        // Fall back to a visible "Search" button if the IME action did nothing.
+        ScreenState st = ScreenState.capture(this, screenW, screenH);
+        for (ScreenState.Item it : st.items) {
+            if (!it.clickable) continue;
+            for (String n : new String[]{"search", "rechercher", "buscar"}) {
+                if (it.text.contains(n) && it.cy() < st.height * 0.20) { tapItem(it); return; }
+            }
+        }
+    }
+
+    // -------------------------------------------------------------- gestures
+
+    private ScreenState.Item currentBookmark() {
+        return ScreenState.capture(this, screenW, screenH).bookmark();
+    }
+
+    private void tapNamed(String name, ScreenState.Item item, Runnable done) {
+        if (item == null) {
+            ActionLog.add(name, "target not found, skipped", true);
+        } else {
+            ActionLog.add(name, "", prefs.dryRun());
+            tapItem(item);
+        }
+        later(behavior.between(500, 1100), done);
+    }
+
+    private void likeByDoubleTap(Runnable done) {
+        // Always a centre double-tap rather than the heart: double-tap only ever
+        // likes, while the heart toggles and would un-like an already-liked video.
+        ActionLog.add("likePost", "double-tap", prefs.dryRun());
+        float x = screenW * 0.5f + jitter(screenW * 0.10f);
+        float y = screenH * 0.45f + jitter(screenH * 0.08f);
+        tap(x, y);
+        final float x2 = x + jitter(24f), y2 = y + jitter(24f);
+        later(behavior.between(90, 170), new Runnable() {
+            @Override public void run() { tap(x2, y2); }
+        });
+        later(behavior.between(600, 1200), done);
+    }
+
+    private void tapItem(ScreenState.Item it) {
+        if (it == null) return;
+        float x = it.cx() + jitter(Math.min(it.bounds.width() * 0.35f, screenW * 0.02f));
+        float y = it.cy() + jitter(Math.min(it.bounds.height() * 0.35f, screenH * 0.01f));
+        tap(x, y);
+    }
+
+    private float jitter(float span) { return (rnd.nextFloat() - 0.5f) * span; }
 
     private void swipe(boolean up) {
+        if (prefs.dryRun()) return;
         float cx = screenW * 0.5f + jitter(screenW * 0.12f);
         float y1 = screenH * (up ? 0.72f : 0.30f) + jitter(screenH * 0.04f);
         float y2 = screenH * (up ? 0.28f : 0.74f) + jitter(screenH * 0.04f);
 
         Path p = new Path();
         p.moveTo(cx, y1);
-        // Slight arc rather than a ruler-straight line.
         p.quadTo(cx + jitter(screenW * 0.10f), (y1 + y2) / 2f,
                  cx + jitter(screenW * 0.05f), y2);
-
-        dispatch(p, 160 + rnd.nextInt(180));
-    }
-
-    private void tapFrac(float fx, float fy) {
-        tap(screenW * fx + jitter(screenW * 0.015f),
-            screenH * fy + jitter(screenH * 0.008f));
+        dispatch(p, behavior.between(160, 340));
     }
 
     private void tap(float x, float y) {
+        if (prefs.dryRun()) return;
         Path p = new Path();
         p.moveTo(x, y);
         p.lineTo(x + 1f, y + 1f);
-        dispatch(p, 50 + rnd.nextInt(50));
+        dispatch(p, behavior.between(50, 100));
     }
 
-    private void doubleTapCentre() {
-        final float x = screenW * 0.5f + jitter(screenW * 0.10f);
-        final float y = screenH * 0.45f + jitter(screenH * 0.08f);
-        tap(x, y);
-        handler.postDelayed(new Runnable() {
-            @Override public void run() {
-                if (running) tap(x + jitter(20f), y + jitter(20f));
-            }
-        }, 90 + rnd.nextInt(70));
+    private void back() {
+        if (prefs.dryRun()) return;
+        try { performGlobalAction(GLOBAL_ACTION_BACK); } catch (Throwable ignored) { }
     }
 
     private void dispatch(Path path, int durationMs) {
@@ -292,24 +645,4 @@ public class WarmupService extends AccessibilityService {
             dispatchGesture(b.build(), null, null);
         } catch (Throwable ignored) { }
     }
-
-    // ------------------------------------------------------ tunable positions
-
-    private float pref(String key, float def) {
-        SharedPreferences sp = getSharedPreferences(Prefs.NAME, Context.MODE_PRIVATE);
-        return sp.getFloat(key, def);
-    }
-
-    private boolean prefBool(String key, boolean def) {
-        SharedPreferences sp = getSharedPreferences(Prefs.NAME, Context.MODE_PRIVATE);
-        return sp.getBoolean(key, def);
-    }
-
-    private float railX()    { return pref(Prefs.RAIL_X,    Prefs.D_RAIL_X); }
-    private float profileY() { return pref(Prefs.PROFILE_Y, Prefs.D_PROFILE_Y); }
-    private float commentY() { return pref(Prefs.COMMENT_Y, Prefs.D_COMMENT_Y); }
-    private float saveY()    { return pref(Prefs.SAVE_Y,    Prefs.D_SAVE_Y); }
-    private float navY()     { return pref(Prefs.NAV_Y,     Prefs.D_NAV_Y); }
-    private float shopX()    { return pref(Prefs.SHOP_X,    Prefs.D_SHOP_X); }
-    private float inboxX()   { return pref(Prefs.INBOX_X,   Prefs.D_INBOX_X); }
 }

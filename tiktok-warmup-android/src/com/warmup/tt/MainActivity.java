@@ -1,42 +1,45 @@
 package com.warmup.tt;
 
 import android.app.Activity;
-import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Color;
+import android.graphics.Typeface;
+import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.provider.Settings;
 import android.text.InputType;
+import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.Button;
-import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
+import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import java.util.LinkedHashMap;
-import java.util.Map;
+import java.util.ArrayList;
+import java.util.List;
 
 public class MainActivity extends Activity {
 
-    private static final int START_DELAY_SECONDS = 5;
+    private static final int START_DELAY_SECONDS = 6;
 
-    private TextView status;
-    private EditText durationInput;
-    private CheckBox faithfulBox;
-    private final Map<String, EditText> fractionInputs = new LinkedHashMap<String, EditText>();
+    private Prefs prefs;
     private final Handler ui = new Handler(Looper.getMainLooper());
-    private SharedPreferences sp;
+
+    private TextView bigButton, statusLine, subStatus, feedView, researchView, serviceWarn;
+    private EditText durationInput, nicheInput;
+    private final List<TextView> presetChips = new ArrayList<TextView>();
+    private int preset;
 
     private final Runnable poll = new Runnable() {
         @Override public void run() {
-            refreshStatus();
+            refresh();
             ui.postDelayed(this, 1000L);
         }
     };
@@ -44,203 +47,467 @@ public class MainActivity extends Activity {
     @Override
     protected void onCreate(Bundle saved) {
         super.onCreate(saved);
-        sp = getSharedPreferences(Prefs.NAME, Context.MODE_PRIVATE);
+        prefs = new Prefs(this);
+        preset = prefs.preset();
 
         ScrollView scroll = new ScrollView(this);
+        scroll.setBackgroundColor(Theme.BG);
+        scroll.setFillViewport(true);
+
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        int pad = dp(20);
-        root.setPadding(pad, pad, pad, pad);
+        int p = Theme.dp(this, 18);
+        root.setPadding(p, Theme.dp(this, 28), p, Theme.dp(this, 40));
         scroll.addView(root, new ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
-        root.addView(heading("Warmup"));
-        root.addView(body("Port of l-portet/tiktok-warmup-bot. Same action table and "
-                + "intervals, driven by Android's accessibility gestures instead of iOS "
-                + "Voice Control."));
+        buildHeader(root);
+        buildServiceWarning(root);
+        buildControl(root);
+        buildSession(root);
+        buildNiche(root);
+        buildOptions(root);
+        buildLiveFeed(root);
+        buildResearch(root);
+        buildCredits(root);
 
-        // -- step 1 -------------------------------------------------------
-        root.addView(heading("1. Accessibility service"));
-        root.addView(body("The service must be enabled before anything can run. "
-                + "Find \"Warmup\" under Installed apps / Downloaded services."));
-        Button openSettings = new Button(this);
-        openSettings.setText("Open accessibility settings");
-        openSettings.setOnClickListener(new View.OnClickListener() {
+        setContentView(scroll);
+        Notifications.ensureChannel(this);
+    }
+
+    @Override protected void onResume() { super.onResume(); ui.post(poll); }
+    @Override protected void onPause()  { super.onPause(); ui.removeCallbacks(poll); persist(); }
+
+    // ---------------------------------------------------------------- header
+
+    private void buildHeader(LinearLayout root) {
+        TextView t = new TextView(this);
+        t.setText("Warmup");
+        t.setTextSize(34f);
+        t.setTextColor(Theme.TEXT);
+        t.setTypeface(t.getTypeface(), Typeface.BOLD);
+        root.addView(t);
+
+        TextView s = new TextView(this);
+        s.setText("Human-modelled TikTok warmup");
+        Theme.style(s, 13f, Theme.MUTED, false);
+        s.setPadding(0, Theme.dp(this, 2), 0, Theme.dp(this, 18));
+        root.addView(s);
+    }
+
+    private void buildServiceWarning(LinearLayout root) {
+        serviceWarn = new TextView(this);
+        serviceWarn.setText("Accessibility service is off  -  tap to enable");
+        Theme.style(serviceWarn, 13f, 0xFF1A1200, true);
+        serviceWarn.setBackground(Theme.solid(this, Theme.WARN, 12));
+        int q = Theme.dp(this, 14);
+        serviceWarn.setPadding(q, q, q, q);
+        serviceWarn.setGravity(Gravity.CENTER);
+        serviceWarn.setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View v) {
                 startActivity(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS));
             }
         });
-        root.addView(openSettings);
-
-        // -- step 2 -------------------------------------------------------
-        root.addView(heading("2. Session"));
-        durationInput = new EditText(this);
-        durationInput.setInputType(InputType.TYPE_CLASS_NUMBER);
-        durationInput.setText(String.valueOf(sp.getInt(Prefs.DURATION, 30)));
-        root.addView(label("Duration (minutes)"));
-        root.addView(durationInput);
-
-        faithfulBox = new CheckBox(this);
-        faithfulBox.setText("Faithful mode (upstream bug included)");
-        faithfulBox.setChecked(sp.getBoolean(Prefs.FAITHFUL, Prefs.D_FAITHFUL));
-        root.addView(faithfulBox);
-        root.addView(body("Upstream re-rolls every interval when any action fires, so "
-                + "openProfile, openShop and openInbox never actually run. Leave this off "
-                + "unless you want that behaviour reproduced exactly."));
-
-        Button start = new Button(this);
-        start.setText("Start");
-        start.setOnClickListener(new View.OnClickListener() {
-            @Override public void onClick(View v) { startWarmup(); }
-        });
-        root.addView(start);
-
-        Button stop = new Button(this);
-        stop.setText("Stop");
-        stop.setOnClickListener(new View.OnClickListener() {
-            @Override public void onClick(View v) { stopWarmup(); }
-        });
-        root.addView(stop);
-
-        status = new TextView(this);
-        status.setPadding(0, dp(12), 0, dp(12));
-        status.setTextColor(Color.DKGRAY);
-        root.addView(status);
-
-        // -- step 3 -------------------------------------------------------
-        root.addView(heading("3. Calibration"));
-        root.addView(body("Tap targets as a fraction of screen size (0-1). The defaults "
-                + "are estimates of TikTok's layout. If likes or saves miss, adjust these "
-                + "and restart the session. likePost uses a double-tap in the centre, so "
-                + "it needs no calibration."));
-
-        addFraction(root, "Action rail X",  Prefs.RAIL_X,    Prefs.D_RAIL_X);
-        addFraction(root, "Avatar Y",       Prefs.PROFILE_Y, Prefs.D_PROFILE_Y);
-        addFraction(root, "Comments Y",     Prefs.COMMENT_Y, Prefs.D_COMMENT_Y);
-        addFraction(root, "Bookmark Y",     Prefs.SAVE_Y,    Prefs.D_SAVE_Y);
-        addFraction(root, "Bottom nav Y",   Prefs.NAV_Y,     Prefs.D_NAV_Y);
-        addFraction(root, "Shop X",         Prefs.SHOP_X,    Prefs.D_SHOP_X);
-        addFraction(root, "Inbox X",        Prefs.INBOX_X,   Prefs.D_INBOX_X);
-
-        setContentView(scroll);
+        LinearLayout.LayoutParams lp = fill();
+        lp.bottomMargin = Theme.dp(this, 14);
+        root.addView(serviceWarn, lp);
     }
 
-    @Override protected void onResume() { super.onResume(); ui.post(poll); }
-    @Override protected void onPause()  { super.onPause();  ui.removeCallbacks(poll); }
+    // --------------------------------------------------------------- control
 
-    // ------------------------------------------------------------- actions
+    private void buildControl(LinearLayout root) {
+        LinearLayout card = card(root, null);
+        card.setGravity(Gravity.CENTER_HORIZONTAL);
 
-    private void startWarmup() {
+        bigButton = new TextView(this);
+        bigButton.setText("START");
+        bigButton.setGravity(Gravity.CENTER);
+        Theme.style(bigButton, 20f, 0xFF07131A, true);
+        bigButton.setBackground(Theme.pressable(Theme.accentCircle(this)));
+        int d = Theme.dp(this, 148);
+        LinearLayout.LayoutParams blp = new LinearLayout.LayoutParams(d, d);
+        blp.topMargin = Theme.dp(this, 6);
+        blp.bottomMargin = Theme.dp(this, 16);
+        bigButton.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) { toggleSession(); }
+        });
+        card.addView(bigButton, blp);
+
+        statusLine = new TextView(this);
+        statusLine.setGravity(Gravity.CENTER);
+        Theme.style(statusLine, 15f, Theme.TEXT, true);
+        card.addView(statusLine, fill());
+
+        subStatus = new TextView(this);
+        subStatus.setGravity(Gravity.CENTER);
+        Theme.style(subStatus, 12f, Theme.MUTED, false);
+        subStatus.setPadding(0, Theme.dp(this, 4), 0, 0);
+        card.addView(subStatus, fill());
+    }
+
+    private void toggleSession() {
         WarmupService svc = WarmupService.instance;
         if (svc == null) {
-            toast("Enable the accessibility service first (step 1).");
+            toast("Enable the accessibility service first");
+            startActivity(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS));
             return;
         }
         if (svc.isRunning()) {
-            toast("Already running.");
+            svc.stopSession("user");
+            refresh();
             return;
         }
-
-        saveSettings();
-        int minutes = parseInt(durationInput.getText().toString(), 30);
-        svc.startSession(minutes, START_DELAY_SECONDS);
-
-        toast("Starting in " + START_DELAY_SECONDS + "s - open TikTok now");
-        moveTaskToBack(true);
+        persist();
+        svc.startSession(parseInt(durationInput.getText().toString(), 30),
+                START_DELAY_SECONDS);
+        toast(prefs.dryRun()
+                ? "Dry run - watching only, nothing will be tapped"
+                : "Starting in " + START_DELAY_SECONDS + "s, open TikTok now");
+        if (!prefs.dryRun()) moveTaskToBack(true);
+        refresh();
     }
 
-    private void stopWarmup() {
-        WarmupService svc = WarmupService.instance;
-        if (svc == null) {
-            toast("Service is not connected.");
-            return;
+    // --------------------------------------------------------------- session
+
+    private void buildSession(LinearLayout root) {
+        LinearLayout card = card(root, "Session");
+
+        card.addView(label("Duration (minutes)"));
+        durationInput = input(String.valueOf(prefs.duration()),
+                InputType.TYPE_CLASS_NUMBER);
+        card.addView(durationInput, fill());
+
+        TextView note = new TextView(this);
+        note.setText("Actual length varies 0.75-1.25x so sessions don't end on a round number.");
+        Theme.style(note, 11f, Theme.FAINT, false);
+        note.setPadding(0, Theme.dp(this, 6), 0, Theme.dp(this, 14));
+        card.addView(note, fill());
+
+        card.addView(label("Activity level"));
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        String[] names = { "Light", "Normal", "Heavy" };
+        for (int i = 0; i < 3; i++) {
+            final int idx = i;
+            TextView chip = new TextView(this);
+            chip.setText(names[i]);
+            chip.setGravity(Gravity.CENTER);
+            chip.setPadding(0, Theme.dp(this, 11), 0, Theme.dp(this, 11));
+            chip.setOnClickListener(new View.OnClickListener() {
+                @Override public void onClick(View v) {
+                    preset = idx;
+                    paintChips();
+                    prefs.edit().putInt(Prefs.PRESET, preset).apply();
+                }
+            });
+            LinearLayout.LayoutParams clp =
+                    new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+            clp.leftMargin = i == 0 ? 0 : Theme.dp(this, 8);
+            row.addView(chip, clp);
+            presetChips.add(chip);
         }
-        svc.stopSession();
-        toast("Stopped.");
-        refreshStatus();
+        LinearLayout.LayoutParams rlp = fill();
+        rlp.topMargin = Theme.dp(this, 6);
+        card.addView(row, rlp);
+        paintChips();
+
+        TextView rates = new TextView(this);
+        rates.setText("Normal targets published human rates: ~3.7% likes, <1% saves, "
+                + "~6% comment opens, 8.1s mean watch time.");
+        Theme.style(rates, 11f, Theme.FAINT, false);
+        rates.setPadding(0, Theme.dp(this, 10), 0, 0);
+        card.addView(rates, fill());
+
+        card.addView(toggle("Dry run", "Decide and log everything, tap nothing. "
+                + "Watch one session before trusting it.", Prefs.DRY_RUN, false));
     }
 
-    private void refreshStatus() {
-        WarmupService svc = WarmupService.instance;
-        if (svc == null) {
-            status.setText("Service: not enabled");
-            return;
+    private void paintChips() {
+        for (int i = 0; i < presetChips.size(); i++) {
+            TextView c = presetChips.get(i);
+            boolean on = i == preset;
+            c.setBackground(on ? Theme.accent(this, 10) : Theme.card(this, Theme.CARD_HI, 10));
+            c.setTextColor(on ? 0xFF07131A : Theme.MUTED);
+            c.setTypeface(c.getTypeface(), on ? Typeface.BOLD : Typeface.NORMAL);
         }
-        if (!svc.isRunning()) {
-            status.setText("Service: ready\nLast session: " + svc.getStatsLine());
-            return;
-        }
-        long remaining = svc.getRemainingMs() / 1000L;
-        status.setText("Running - " + (remaining / 60) + "m " + (remaining % 60) + "s left"
-                + "\nSwipes: " + svc.getSwipeCount()
-                + "\nLast: " + svc.getLastAction()
-                + "\n" + svc.getStatsLine());
     }
 
-    private void saveSettings() {
-        SharedPreferences.Editor ed = sp.edit();
-        ed.putInt(Prefs.DURATION, parseInt(durationInput.getText().toString(), 30));
-        ed.putBoolean(Prefs.FAITHFUL, faithfulBox.isChecked());
-        for (Map.Entry<String, EditText> e : fractionInputs.entrySet()) {
-            float v = parseFloat(e.getValue().getText().toString(), Float.NaN);
-            if (!Float.isNaN(v) && v >= 0f && v <= 1f) {
-                ed.putFloat(e.getKey(), v);
+    // ----------------------------------------------------------------- niche
+
+    private void buildNiche(LinearLayout root) {
+        LinearLayout card = card(root, "Niche");
+
+        card.addView(toggle("Search my niche", "Periodically searches a term and browses "
+                + "the results, which pulls your For You page toward the niche.",
+                Prefs.NICHE_ENABLED, true));
+
+        card.addView(label("Search terms, one per line"));
+        nicheInput = input(prefs.nicheRaw(),
+                InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_MULTI_LINE);
+        nicheInput.setMinLines(4);
+        nicheInput.setGravity(Gravity.TOP);
+        card.addView(nicheInput, fill());
+    }
+
+    // --------------------------------------------------------------- options
+
+    private void buildOptions(LinearLayout root) {
+        LinearLayout card = card(root, "Behaviour");
+        card.addView(toggle("Floating stop button",
+                "Draggable overlay, parked left where the bot never taps.",
+                Prefs.OVERLAY, true));
+        card.addView(toggle("Research log",
+                "Records authors, hashtags and sounds it scrolls past.",
+                Prefs.RESEARCH, true));
+        card.addView(toggle("Like comments",
+                "Occasionally likes a comment while the sheet is open.",
+                Prefs.LIKE_COMMENTS, true));
+        card.addView(toggle("Repost",
+                "Off by default. Reposts push a video to your followers under your "
+                + "name, chosen by something that cannot see the video.",
+                Prefs.REPOST, false));
+    }
+
+    // ------------------------------------------------------------- live feed
+
+    private void buildLiveFeed(LinearLayout root) {
+        LinearLayout card = card(root, "Live");
+        feedView = new TextView(this);
+        Theme.style(feedView, 12f, Theme.MUTED, false);
+        feedView.setTypeface(Typeface.MONOSPACE);
+        feedView.setLineSpacing(0f, 1.25f);
+        card.addView(feedView, fill());
+    }
+
+    // -------------------------------------------------------------- research
+
+    private void buildResearch(LinearLayout root) {
+        LinearLayout card = card(root, "Niche research");
+        researchView = new TextView(this);
+        Theme.style(researchView, 12f, Theme.MUTED, false);
+        researchView.setLineSpacing(0f, 1.3f);
+        card.addView(researchView, fill());
+
+        TextView clear = new TextView(this);
+        clear.setText("Clear log");
+        clear.setGravity(Gravity.CENTER);
+        Theme.style(clear, 13f, Theme.DANGER, true);
+        clear.setPadding(0, Theme.dp(this, 12), 0, Theme.dp(this, 12));
+        clear.setBackground(Theme.card(this, Theme.CARD_HI, 10));
+        clear.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) {
+                new ResearchLog(MainActivity.this).clear();
+                refresh();
+                toast("Research log cleared");
             }
+        });
+        LinearLayout.LayoutParams lp = fill();
+        lp.topMargin = Theme.dp(this, 12);
+        card.addView(clear, lp);
+    }
+
+    // --------------------------------------------------------------- credits
+
+    private void buildCredits(LinearLayout root) {
+        LinearLayout card = card(root, "Credits");
+
+        TextView who = new TextView(this);
+        who.setText("Lou-Ming Dastot");
+        Theme.style(who, 17f, Theme.TEXT, true);
+        card.addView(who, fill());
+
+        TextView role = new TextView(this);
+        role.setText("Cybersecurity graduate, software & bot developer");
+        Theme.style(role, 12f, Theme.MUTED, false);
+        role.setPadding(0, Theme.dp(this, 2), 0, Theme.dp(this, 12));
+        card.addView(role, fill());
+
+        card.addView(link("Website", "https://louming.dastot.net"));
+        card.addView(link("LinkedIn", "https://www.linkedin.com/in/lou-ming-dastot/"));
+        card.addView(link("GitHub", "https://github.com/Maxime35510"));
+
+        TextView based = new TextView(this);
+        based.setText("Ported from tiktok-warmup-bot by l-portet (ISC). The original "
+                + "drives an iPhone from a Mac using iOS Voice Control; this rebuilds it "
+                + "natively on Android with a measured behaviour model.");
+        Theme.style(based, 11f, Theme.FAINT, false);
+        based.setPadding(0, Theme.dp(this, 16), 0, Theme.dp(this, 8));
+        card.addView(based, fill());
+
+        card.addView(link("Original project", "https://github.com/l-portet/tiktok-warmup-bot"));
+    }
+
+    private TextView link(String text, final String url) {
+        TextView t = new TextView(this);
+        t.setText(text);
+        Theme.style(t, 14f, Theme.ACCENT_A, true);
+        t.setPadding(Theme.dp(this, 14), Theme.dp(this, 12),
+                     Theme.dp(this, 14), Theme.dp(this, 12));
+        t.setBackground(Theme.pressable(Theme.card(this, Theme.CARD_HI, 10)));
+        t.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) {
+                try {
+                    startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
+                } catch (Throwable t2) { toast("No browser found"); }
+            }
+        });
+        LinearLayout.LayoutParams lp = fill();
+        lp.topMargin = Theme.dp(this, 8);
+        t.setLayoutParams(lp);
+        return t;
+    }
+
+    // ----------------------------------------------------------------- state
+
+    private void refresh() {
+        WarmupService svc = WarmupService.instance;
+        boolean connected = svc != null;
+        serviceWarn.setVisibility(connected ? View.GONE : View.VISIBLE);
+
+        boolean running = connected && svc.isRunning();
+        bigButton.setText(running ? "STOP" : "START");
+        bigButton.setBackground(Theme.pressable(
+                running ? Theme.dangerCircle(this) : Theme.accentCircle(this)));
+
+        if (!connected) {
+            statusLine.setText("Service not enabled");
+            subStatus.setText("Warmup needs the accessibility service to read the screen");
+        } else if (!running) {
+            statusLine.setText("Ready");
+            subStatus.setText(ActionLog.summary());
+        } else {
+            long s = svc.remainingMs() / 1000;
+            statusLine.setText((svc.isPaused() ? "Paused  -  " : "")
+                    + String.format("%d:%02d", s / 60, s % 60) + " left");
+            subStatus.setText("video " + svc.videoCount() + "   ·   " + svc.lastAction()
+                    + (svc.dryRun() ? "   ·   DRY RUN" : ""));
         }
+
+        StringBuilder sb = new StringBuilder();
+        List<ActionLog.Entry> es = ActionLog.recent(14);
+        for (int i = es.size() - 1; i >= 0; i--) {
+            ActionLog.Entry e = es.get(i);
+            sb.append(ActionLog.clock(e.time)).append("  ").append(e.action);
+            if (e.detail.length() > 0) sb.append("  ").append(e.detail);
+            if (e.skipped) sb.append("  (skipped)");
+            sb.append('\n');
+        }
+        feedView.setText(sb.length() == 0 ? "nothing yet" : sb.toString().trim());
+
+        ResearchLog r = new ResearchLog(this);
+        StringBuilder rb = new StringBuilder();
+        rb.append(r.size()).append(" videos logged\n");
+        appendList(rb, "Top hashtags", r.topHashtags(6));
+        appendList(rb, "Top sounds", r.topSounds(4));
+        appendList(rb, "Recurring creators", r.topAuthors(4));
+        researchView.setText(rb.toString().trim());
+    }
+
+    private static void appendList(StringBuilder sb, String title, List<String> items) {
+        sb.append('\n').append(title).append('\n');
+        if (items.isEmpty()) { sb.append("  -\n"); return; }
+        for (String s : items) sb.append("  ").append(s).append('\n');
+    }
+
+    private void persist() {
+        if (durationInput == null) return;
+        SharedPreferences.Editor ed = prefs.edit();
+        ed.putInt(Prefs.DURATION, parseInt(durationInput.getText().toString(), 30));
+        ed.putInt(Prefs.PRESET, preset);
+        ed.putString(Prefs.NICHE_TERMS, nicheInput.getText().toString());
         ed.apply();
     }
 
-    // --------------------------------------------------------------- views
+    // ----------------------------------------------------------------- views
 
-    private void addFraction(LinearLayout parent, String labelText, String key, float def) {
-        EditText input = new EditText(this);
-        input.setInputType(InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL);
-        input.setText(String.valueOf(sp.getFloat(key, def)));
-        parent.addView(label(labelText));
-        parent.addView(input);
-        fractionInputs.put(key, input);
+    private LinearLayout card(LinearLayout parent, String title) {
+        LinearLayout c = new LinearLayout(this);
+        c.setOrientation(LinearLayout.VERTICAL);
+        c.setBackground(Theme.card(this, Theme.CARD, 18));
+        int q = Theme.dp(this, 18);
+        c.setPadding(q, q, q, q);
+
+        if (title != null) {
+            TextView t = new TextView(this);
+            t.setText(title.toUpperCase());
+            Theme.style(t, 11f, Theme.FAINT, true);
+            t.setLetterSpacing(0.14f);
+            t.setPadding(0, 0, 0, Theme.dp(this, 12));
+            c.addView(t);
+        }
+        LinearLayout.LayoutParams lp = fill();
+        lp.bottomMargin = Theme.dp(this, 14);
+        parent.addView(c, lp);
+        return c;
     }
 
-    private TextView heading(String text) {
-        TextView tv = new TextView(this);
-        tv.setText(text);
-        tv.setTextSize(20f);
-        tv.setTextColor(Color.BLACK);
-        tv.setPadding(0, dp(20), 0, dp(6));
-        return tv;
-    }
+    private View toggle(String title, String desc, final String key, boolean def) {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.VERTICAL);
+        row.setPadding(0, Theme.dp(this, 12), 0, 0);
 
-    private TextView body(String text) {
-        TextView tv = new TextView(this);
-        tv.setText(text);
-        tv.setTextSize(14f);
-        tv.setTextColor(Color.DKGRAY);
-        tv.setPadding(0, 0, 0, dp(8));
-        return tv;
+        LinearLayout top = new LinearLayout(this);
+        top.setOrientation(LinearLayout.HORIZONTAL);
+        top.setGravity(Gravity.CENTER_VERTICAL);
+
+        TextView t = new TextView(this);
+        t.setText(title);
+        Theme.style(t, 14f, Theme.TEXT, false);
+        top.addView(t, new LinearLayout.LayoutParams(
+                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+
+        Switch sw = new Switch(this);
+        sw.setChecked(prefs.raw().getBoolean(key, def));
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            sw.setThumbTintList(android.content.res.ColorStateList.valueOf(Theme.ACCENT_A));
+        }
+        sw.setOnCheckedChangeListener(new android.widget.CompoundButton.OnCheckedChangeListener() {
+            @Override public void onCheckedChanged(
+                    android.widget.CompoundButton b, boolean on) {
+                prefs.edit().putBoolean(key, on).apply();
+            }
+        });
+        top.addView(sw);
+        row.addView(top, fill());
+
+        if (desc != null) {
+            TextView d = new TextView(this);
+            d.setText(desc);
+            Theme.style(d, 11f, Theme.FAINT, false);
+            d.setPadding(0, Theme.dp(this, 2), Theme.dp(this, 48), 0);
+            row.addView(d, fill());
+        }
+        return row;
     }
 
     private TextView label(String text) {
-        TextView tv = new TextView(this);
-        tv.setText(text);
-        tv.setTextSize(13f);
-        tv.setTextColor(Color.GRAY);
-        tv.setPadding(0, dp(8), 0, 0);
-        return tv;
+        TextView t = new TextView(this);
+        t.setText(text);
+        Theme.style(t, 12f, Theme.MUTED, false);
+        t.setPadding(0, Theme.dp(this, 10), 0, Theme.dp(this, 6));
+        return t;
     }
 
-    private int dp(int v) {
-        return (int) (v * getResources().getDisplayMetrics().density);
+    private EditText input(String value, int type) {
+        EditText e = new EditText(this);
+        e.setText(value);
+        e.setInputType(type);
+        e.setTextColor(Theme.TEXT);
+        e.setTextSize(15f);
+        e.setBackground(Theme.card(this, Theme.CARD_HI, 10));
+        int q = Theme.dp(this, 12);
+        e.setPadding(q, q, q, q);
+        return e;
     }
 
-    private void toast(String msg) {
-        Toast.makeText(this, msg, Toast.LENGTH_LONG).show();
+    private LinearLayout.LayoutParams fill() {
+        return new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
     }
+
+    private void toast(String m) { Toast.makeText(this, m, Toast.LENGTH_LONG).show(); }
 
     private static int parseInt(String s, int def) {
         try { return Integer.parseInt(s.trim()); } catch (Exception e) { return def; }
-    }
-
-    private static float parseFloat(String s, float def) {
-        try { return Float.parseFloat(s.trim()); } catch (Exception e) { return def; }
     }
 }
