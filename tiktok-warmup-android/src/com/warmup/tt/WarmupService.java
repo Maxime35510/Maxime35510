@@ -33,6 +33,8 @@ public class WarmupService extends AccessibilityService implements OverlayContro
     public static volatile WarmupService instance;
 
     private final Handler handler = new Handler(Looper.getMainLooper());
+    /** Separate from the action handler, which gets wholesale-cleared on stop/skip. */
+    private final Handler beat = new Handler(Looper.getMainLooper());
     private final Random rnd = new Random();
 
     private Prefs prefs;
@@ -51,8 +53,11 @@ public class WarmupService extends AccessibilityService implements OverlayContro
     private int sinceSearch = 0, nextSearchAt = 0;
     private boolean statsDoneThisSession = false;
     private String lastAction = "-", detected = "-";
-    private boolean lastMatch = false;
+    private Behavior.Match lastMatch = Behavior.Match.UNKNOWN;
     private long lastNotify = 0;
+    private String lastText = "";
+    private int unreadable = 0, forcedMatch = 0;
+    private boolean inSearchFeed = false;
 
     private int screenW = 1080, screenH = 2400;
 
@@ -133,6 +138,9 @@ public class WarmupService extends AccessibilityService implements OverlayContro
         recoveries = unknownScreens = pausedCycles = 0;
         backUnsafe = false;
         statsDoneThisSession = false;
+        inSearchFeed = false;
+        forcedMatch = 0;
+        unreadable = 0;
         sinceSearch = 0;
         nextSearchAt = prefs.nicheEnabled() && !niche.isEmpty() ? behavior.between(2, 6)
                                                                 : Integer.MAX_VALUE;
@@ -151,6 +159,8 @@ public class WarmupService extends AccessibilityService implements OverlayContro
             overlay.setMode(OverlayController.Mode.RUNNING);
         }
         notify("Boost running", "starting");
+        beat.removeCallbacks(heartbeat);
+        beat.post(heartbeat);
         handler.postDelayed(new Runnable() {
             @Override public void run() { loop(); }
         }, delay);
@@ -162,6 +172,7 @@ public class WarmupService extends AccessibilityService implements OverlayContro
         running = false;
         paused = userPaused = false;
         handler.removeCallbacksAndMessages(null);
+        beat.removeCallbacks(heartbeat);
         if (overlay != null && overlay.isShown()) {
             overlay.setMode(OverlayController.Mode.ARMED);
         }
@@ -216,6 +227,8 @@ public class WarmupService extends AccessibilityService implements OverlayContro
     }
     public String  lastAction()     { return lastAction; }
     public String  detectedScreen() { return detected; }
+    public String  lastText()       { return lastText; }
+    public int     unreadableRun()  { return unreadable; }
 
     public long remainingMs() {
         long r = endTime - System.currentTimeMillis();
@@ -234,21 +247,37 @@ public class WarmupService extends AccessibilityService implements OverlayContro
                 + (follows > 0 ? "   +" + follows : "");
     }
 
-    private void tick(String state) {
-        lastAction = state;
+    /**
+     * The pill used to freeze because tick() only ran at decision points, and a matched
+     * video can sit for fifty seconds. This drives the display independently of the
+     * action loop, on its own handler so stop/skip can't wipe it.
+     */
+    private final Runnable heartbeat = new Runnable() {
+        @Override public void run() {
+            if (!running) return;
+            paint();
+            beat.postDelayed(this, 1000L);
+        }
+    };
+
+    private void paint() {
         long s = remainingMs() / 1000;
         String time = String.format("%d:%02d", s / 60, s % 60);
         if (overlay != null && overlay.isShown()) {
             overlay.updateStats(time, videoCount, matchedPercent(),
-                    detected, state, lastMatch, countsLine());
+                    detected, lastAction, lastMatch == Behavior.Match.YES, countsLine());
         }
-        // Rebuilding a notification every cycle was a measurable cost.
         long now = System.currentTimeMillis();
         if (now - lastNotify > 2500) {
             lastNotify = now;
             notify(isPaused() ? "Boost paused" : "Boost running",
-                    videoCount + " videos · " + matchedPercent() + "% niche · " + time);
+                    videoCount + " videos - " + matchedPercent() + "% niche - " + time);
         }
+    }
+
+    private void tick(String state) {
+        lastAction = state;
+        paint();
     }
 
     private void notify(String a, String b) {
@@ -321,7 +350,10 @@ public class WarmupService extends AccessibilityService implements OverlayContro
 
         if (sinceSearch >= nextSearchAt && prefs.nicheEnabled() && !niche.isEmpty()) {
             sinceSearch = 0;
-            nextSearchAt = behavior.between(18, 40);
+            // A cold feed needs searching far more often - it is the fastest way to get
+            // niche content in front of the account at all.
+            boolean cold = videoCount > 12 && matchedPercent() < 20;
+            nextSearchAt = cold ? behavior.between(6, 12) : behavior.between(18, 40);
             nicheSearch(st);
             return;
         }
@@ -342,47 +374,64 @@ public class WarmupService extends AccessibilityService implements OverlayContro
         sinceSearch++;
 
         String[] row = st.researchRow();          // author, caption, sound
+        String blob = st.contentText();
+        lastText = blob.length() > 100 ? blob.substring(0, 100) : blob;
         long likeCount = st.likeCount();
-        final boolean match = niche.isEmpty() || niche.matches(row[0], row[1], row[2]);
+
+        final Behavior.Match match;
+        if (forcedMatch > 0) {
+            forcedMatch--;                       // came from a niche search
+            match = Behavior.Match.YES;
+        } else if (niche.isEmpty()) {
+            match = Behavior.Match.YES;
+        } else if (st.textUnreadable()) {
+            unreadable++;
+            match = Behavior.Match.UNKNOWN;
+        } else {
+            unreadable = 0;
+            match = niche.matches(blob) ? Behavior.Match.YES : Behavior.Match.NO;
+        }
         lastMatch = match;
-        if (match) matchedCount++;
+        if (match == Behavior.Match.YES) matchedCount++;
 
         if (prefs.research()) {
-            research.record(row[0], row[1], row[2], likeCount, match);
+            research.record(row[0], row[1], row[2], likeCount,
+                    match == Behavior.Match.YES);
         }
 
         final int watched = behavior.watchTimeMs(match);
-        ActionLog.add(match ? "watch" : "skim",
-                (watched / 1000.0) + "s" + (match ? "  niche" : ""), false);
-        tick(match ? "watching " + (watched / 1000) + "s" : "skipping");
+        String tag = match == Behavior.Match.YES ? "watch"
+                   : (match == Behavior.Match.UNKNOWN ? "unsure" : "skim");
+        ActionLog.add(tag, (watched / 1000.0) + "s"
+                + (match == Behavior.Match.UNKNOWN ? "  no text readable" : ""), false);
+        tick(match == Behavior.Match.NO ? "skipping"
+                : "watching " + (watched / 1000) + "s");
 
         later(watched, new Runnable() {
-            @Override public void run() {
-                if (match) engage(watched);
-                else afterEngage(watched);
-            }
+            @Override public void run() { engage(watched, match); }
         });
     }
 
-    /** Only ever reached for niche matches. */
-    private void engage(final int watched) {
+    /** Probabilities scale with match state; NO engages with nothing. */
+    private void engage(final int watched, final Behavior.Match m) {
         if (!running) return;
+        if (m == Behavior.Match.NO) { afterEngage(watched); return; }
 
-        if (behavior.shouldOpenComments(watched)) { openComments(watched); return; }
-        if (behavior.shouldOpenProfile(watched))  { openProfile(watched);  return; }
+        if (behavior.shouldOpenComments(watched, m)) { openComments(watched); return; }
+        if (behavior.shouldOpenProfile(watched, m))  { openProfile(watched, m); return; }
 
-        if (behavior.shouldSave(watched)) {
+        if (behavior.shouldSave(watched, m)) {
             ScreenState st = ScreenState.capture(this, screenW, screenH);
             tapNamed("save", st.bookmark(), new Runnable() {
                 @Override public void run() { saves++; afterEngage(watched); }
             });
             return;
         }
-        if (prefs.repostEnabled() && behavior.shouldRepost(watched)) {
+        if (prefs.repostEnabled() && behavior.shouldRepost(watched, m)) {
             repost(watched);
             return;
         }
-        if (behavior.shouldLike(watched)) {
+        if (behavior.shouldLike(watched, m)) {
             likeByDoubleTap(new Runnable() {
                 @Override public void run() { likes++; afterEngage(watched); }
             });
@@ -406,7 +455,12 @@ public class WarmupService extends AccessibilityService implements OverlayContro
 
     private void advance() {
         if (!running) return;
-        if (lastMatch && behavior.shouldSwipeBack()) {
+        if (inSearchFeed && forcedMatch == 0) {
+            ActionLog.add("search", "back to For You", false);
+            returnHome();
+            return;
+        }
+        if (lastMatch == Behavior.Match.YES && behavior.shouldSwipeBack()) {
             ActionLog.add("rewatch", "", false);
             swipe(false);
             later(behavior.between(3000, 8000), new Runnable() {
@@ -529,7 +583,7 @@ public class WarmupService extends AccessibilityService implements OverlayContro
 
     // -------------------------------------------------------------- profile
 
-    private void openProfile(final int watched) {
+    private void openProfile(final int watched, final Behavior.Match m) {
         ScreenState st = ScreenState.capture(this, screenW, screenH);
         ScreenState.Item target = st.avatar();
         if (target == null) { afterEngage(watched); return; }
@@ -542,7 +596,7 @@ public class WarmupService extends AccessibilityService implements OverlayContro
             @Override public void run() {
                 // Following a creator in your niche is a strong, lasting interest
                 // signal - but only ever on a matched video, and never in bulk.
-                if (prefs.followEnabled() && behavior.shouldFollow(watched)) {
+                if (prefs.followEnabled() && behavior.shouldFollow(watched, m)) {
                     ScreenState now = ScreenState.capture(
                             WarmupService.this, screenW, screenH);
                     ScreenState.Item f = findFollow(now);
@@ -601,7 +655,11 @@ public class WarmupService extends AccessibilityService implements OverlayContro
         final String term = terms[rnd.nextInt(terms.length)];
 
         ScreenState.Item searchBtn = st.search();
-        if (searchBtn == null) { loop(); return; }
+        if (searchBtn == null) {
+            ActionLog.add("search", "search button not found", true);
+            loop();
+            return;
+        }
 
         ActionLog.add("search", term, false);
         tick("searching niche");
@@ -609,7 +667,11 @@ public class WarmupService extends AccessibilityService implements OverlayContro
 
         later(behavior.between(1100, 1900), new Runnable() {
             @Override public void run() {
-                if (!typeIntoField(term)) { closeSheet(0, 0); return; }
+                if (!typeIntoField(term)) {
+                    ActionLog.add("search", "could not type", true);
+                    returnHome();
+                    return;
+                }
                 later(behavior.between(700, 1400), new Runnable() {
                     @Override public void run() {
                         submitSearch();
@@ -622,16 +684,56 @@ public class WarmupService extends AccessibilityService implements OverlayContro
         });
     }
 
+    /**
+     * Open the first search result and work through a few videos there.
+     *
+     * Search results are niche by construction, so this is the only place engagement
+     * is guaranteed to land on the right content - which makes it the fastest way to
+     * push the interest graph when the For You page hasn't tuned yet.
+     */
     private void browseResults() {
-        ActionLog.add("search", "browsing results", false);
-        swipe(true);
-        later(behavior.between(3000, 7000), new Runnable() {
-            @Override public void run() {
-                swipe(true);
-                later(behavior.between(3000, 7000), new Runnable() {
-                    @Override public void run() { closeSheet(0, 0); }
-                });
+        ScreenState st = ScreenState.capture(this, screenW, screenH);
+        ScreenState.Item first = firstResult(st);
+        if (first == null) {
+            ActionLog.add("search", "no results found", true);
+            returnHome();
+            return;
+        }
+        ActionLog.add("search", "opening results", false);
+        tapItem(first);
+        forcedMatch = behavior.between(4, 9);
+        inSearchFeed = true;
+
+        later(behavior.between(1400, 2400), new Runnable() {
+            @Override public void run() { loop(); }
+        });
+    }
+
+    /** Top-left thumbnail of the results grid. */
+    private ScreenState.Item firstResult(ScreenState st) {
+        ScreenState.Item best = null;
+        for (ScreenState.Item it : st.items) {
+            if (!it.clickable) continue;
+            if (it.cy() < st.height * 0.20 || it.cy() > st.height * 0.80) continue;
+            if (it.bounds.width() < st.width * 0.18) continue;   // not an icon
+            if (best == null
+                    || it.cy() < best.cy() - st.height * 0.02
+                    || (Math.abs(it.cy() - best.cy()) < st.height * 0.02
+                        && it.cx() < best.cx())) {
+                best = it;
             }
+        }
+        return best;
+    }
+
+    private void returnHome() {
+        inSearchFeed = false;
+        forcedMatch = 0;
+        ScreenState st = ScreenState.capture(this, screenW, screenH);
+        ScreenState.Item home = st.home();
+        if (home != null) tapItem(home); else back();
+        later(behavior.between(1200, 2000), new Runnable() {
+            @Override public void run() { loop(); }
         });
     }
 

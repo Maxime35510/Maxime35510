@@ -360,18 +360,72 @@ public final class ScreenState {
 
     // ------------------------------------------------------- research data
 
-    /** Author handle, caption/hashtags and sound name, when they can be read. */
+    /**
+     * Every piece of readable text in the content area, as one blob.
+     *
+     * The previous version looked for an author starting with "@", a caption
+     * containing "#", and a sound via a "sound"/"music" description. On most frames
+     * all three came back empty, so every video scored zero against the niche and was
+     * skipped - the bot did nothing at all. Captions frequently have no hashtags and
+     * handles are often rendered without the "@".
+     *
+     * Nav chrome and the rail's own icon labels are excluded so counts like
+     * "like 12.3k" can't pollute the match.
+     */
+    public String contentText() {
+        StringBuilder sb = new StringBuilder();
+        for (Item it : items) {
+            if (it.cy() < height * 0.10 || it.cy() > height * 0.94) continue;
+            // the right-hand rail: small icons carrying counts, not content
+            if (it.cx() > width * 0.84 && it.bounds.width() < width * 0.20) continue;
+            if (it.text.length() > 1) {
+                sb.append(it.text).append(' ');
+            } else if (it.desc.length() > 3 && it.desc.length() < 140) {
+                sb.append(it.desc).append(' ');
+            }
+        }
+        return sb.toString().trim();
+    }
+
+    /** True when there was essentially nothing to read - not the same as "no match". */
+    public boolean textUnreadable() {
+        String t = contentText();
+        int letters = 0;
+        for (int i = 0; i < t.length(); i++) if (Character.isLetter(t.charAt(i))) letters++;
+        return letters < 6;
+    }
+
+    /** Author handle, caption/hashtags and sound name, for the research log. */
     public String[] researchRow() {
         String author = "", caption = "", sound = "";
         for (Item it : items) {
             String s = it.text;
             if (s.length() == 0) continue;
+            if (it.cy() < height * 0.10 || it.cy() > height * 0.94) continue;
             if (author.length() == 0 && s.startsWith("@")) author = s;
             if (caption.length() == 0 && s.contains("#")) caption = s;
             if (sound.length() == 0
                     && (it.desc.contains("sound") || it.desc.contains("music")
                         || it.desc.contains("son") || it.desc.contains("musique"))) {
                 sound = s;
+            }
+        }
+        // Fall back to the longest line in the content area as the caption.
+        if (caption.length() == 0) {
+            String best = "";
+            for (Item it : items) {
+                if (it.cy() < height * 0.45 || it.cy() > height * 0.92) continue;
+                if (it.cx() > width * 0.80) continue;
+                if (it.text.length() > best.length()) best = it.text;
+            }
+            caption = best;
+        }
+        if (author.length() == 0) {
+            for (Item it : items) {
+                if (it.cy() < height * 0.45 || it.cy() > height * 0.92) continue;
+                if (it.cx() > width * 0.80) continue;
+                if (it.text.length() > 0 && it.text.length() < 30
+                        && !it.text.equals(caption)) { author = it.text; break; }
             }
         }
         return new String[]{ author, caption, sound };

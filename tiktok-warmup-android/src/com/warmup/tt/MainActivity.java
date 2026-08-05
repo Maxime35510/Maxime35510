@@ -37,7 +37,7 @@ public class MainActivity extends Activity {
 
     private TextView bigButton, statusLine, subStatus, feedView, researchView,
                      statsView, serviceWarn, levelLabel, levelDesc, rateSummary,
-                     nicheStatus, durationNote;
+                     nicheStatus, durationNote, diagView;
     private EditText durationInput, nicheInput;
     private SeekBar levelBar;
     private final Map<String, EditText> rateInputs = new LinkedHashMap<String, EditText>();
@@ -75,6 +75,7 @@ public class MainActivity extends Activity {
         buildSession(root);
         buildOptions(root);
         buildLiveFeed(root);
+        buildDiagnostics(root);
         buildStats(root);
         buildResearch(root);
         buildCredits(root);
@@ -466,6 +467,31 @@ public class MainActivity extends Activity {
         card.addView(feedView, fill());
     }
 
+    // ----------------------------------------------------------- diagnostics
+
+    /**
+     * Shows the text the service is actually reading off each video. When matching
+     * silently failed, every video scored zero and the app did nothing at all with no
+     * way to see why - this makes that visible.
+     */
+    private void buildDiagnostics(LinearLayout root) {
+        LinearLayout card = card(root, "What it's reading");
+        diagView = new TextView(this);
+        Theme.style(diagView, 11f, Theme.MUTED, false);
+        diagView.setTypeface(Typeface.MONOSPACE);
+        diagView.setLineSpacing(0f, 1.25f);
+        card.addView(diagView, fill());
+
+        TextView note = new TextView(this);
+        note.setText("If the niche match rate stays at 0% and the text below is empty, "
+                + "it can't read captions on your device — tell me and I'll widen it. "
+                + "Videos it can't read are marked \"unsure\": watched a medium amount, "
+                + "engaged with at 30% of your rates rather than skipped entirely.");
+        Theme.style(note, 10f, Theme.FAINT, false);
+        note.setPadding(0, Theme.dp(this, 10), 0, 0);
+        card.addView(note, fill());
+    }
+
     // ------------------------------------------------------------ own stats
 
     private void buildStats(LinearLayout root) {
@@ -616,6 +642,16 @@ public class MainActivity extends Activity {
             sb.append('\n');
         }
         feedView.setText(sb.length() == 0 ? "nothing yet" : sb.toString().trim());
+
+        if (svc == null) {
+            diagView.setText("service not running");
+        } else {
+            String t = svc.lastText();
+            diagView.setText("last caption read:\n"
+                    + (t == null || t.length() == 0 ? "(nothing)" : t)
+                    + "\n\nunreadable in a row: " + svc.unreadableRun()
+                    + "\nniche match rate: " + svc.matchedPercent() + "%");
+        }
 
         statsView.setText(new SelfStats(this).summary());
 

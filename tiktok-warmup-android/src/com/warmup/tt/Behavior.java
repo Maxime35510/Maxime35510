@@ -46,6 +46,19 @@ public final class Behavior {
     static final double MICRO_PAUSE_P = 0.040;
     static final int MICRO_PAUSE_MIN = 8000, MICRO_PAUSE_MAX = 70000;
 
+    /**
+     * Whether a video is in the niche.
+     *
+     * UNKNOWN exists because "I couldn't read the caption" is not the same as "this
+     * isn't your niche". Collapsing the two meant an unreadable feed produced zero
+     * engagement forever, which is exactly how the app appeared dead. Unknown videos
+     * get middling watch time and a fraction of the engagement rates.
+     */
+    public enum Match { YES, NO, UNKNOWN }
+
+    static final double UNKNOWN_SCALE = 0.30;
+    static final int UNKNOWN_MIN = 4000, UNKNOWN_MAX = 14000;
+
     /** Everything the level slider drives, per 100 matched videos. */
     public static final class Rates {
         public int like, save, commentOpen, commentLike, profile, repost, rewatch, follow;
@@ -116,8 +129,10 @@ public final class Behavior {
 
     // ------------------------------------------------------------ watch time
 
-    public int watchTimeMs(boolean nicheMatch) {
-        return nicheMatch ? matchedWatch() : skimWatch();
+    public int watchTimeMs(Match m) {
+        if (m == Match.YES) return matchedWatch();
+        if (m == Match.NO)  return skimWatch();
+        return UNKNOWN_MIN + rnd.nextInt(UNKNOWN_MAX - UNKNOWN_MIN + 1);
     }
 
     /** Not our niche: get past it the way a person flicks past something dull. */
@@ -164,14 +179,25 @@ public final class Behavior {
 
     // ----------------------------------------------------------- engagement
 
-    public boolean shouldLike(int w)         { return w >= gLike && rnd.nextDouble() < pLike; }
-    public boolean shouldSave(int w)         { return w >= gSave && rnd.nextDouble() < pSave; }
-    public boolean shouldOpenComments(int w) { return w >= gComm && rnd.nextDouble() < pComm; }
-    public boolean shouldOpenProfile(int w)  { return w >= gProf && rnd.nextDouble() < pProf; }
-    public boolean shouldRepost(int w)       { return w >= gRepost && rnd.nextDouble() < pRepost; }
-    public boolean shouldFollow(int w)       { return w >= gFollow && rnd.nextDouble() < pFollow; }
-    public boolean shouldSwipeBack()         { return rnd.nextDouble() < pRewatch; }
-    public boolean shouldLikeComment()       { return rnd.nextDouble() < pCommentLike; }
+    private double scale(Match m) {
+        if (m == Match.YES) return 1.0;
+        if (m == Match.UNKNOWN) return UNKNOWN_SCALE;
+        return 0.0;
+    }
+
+    private boolean roll(int w, int gate, double p, Match m) {
+        double q = p * scale(m);
+        return q > 0 && w >= gate && rnd.nextDouble() < q;
+    }
+
+    public boolean shouldLike(int w, Match m)         { return roll(w, gLike,   pLike,   m); }
+    public boolean shouldSave(int w, Match m)         { return roll(w, gSave,   pSave,   m); }
+    public boolean shouldOpenComments(int w, Match m) { return roll(w, gComm,   pComm,   m); }
+    public boolean shouldOpenProfile(int w, Match m)  { return roll(w, gProf,   pProf,   m); }
+    public boolean shouldRepost(int w, Match m)       { return roll(w, gRepost, pRepost, m); }
+    public boolean shouldFollow(int w, Match m)       { return roll(w, gFollow, pFollow, m); }
+    public boolean shouldSwipeBack()                  { return rnd.nextDouble() < pRewatch; }
+    public boolean shouldLikeComment()                { return rnd.nextDouble() < pCommentLike; }
 
     public int commentDwellMs(int commentCount) {
         int perComment = 900 + rnd.nextInt(1400);

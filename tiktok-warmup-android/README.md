@@ -7,6 +7,36 @@ The original is a Node script that runs **on a Mac** and plays MP3s out of the l
 speakers; an iPhone next to it picks them up through iOS Voice Control and performs the
 gestures. That needs a computer. This runs entirely on the phone.
 
+## v3.1 - two bugs that made it look dead
+
+**The pill froze.** `tick()` only ran at decision points, and a matched video sits for
+up to fifty seconds, so nothing updated the display for that whole time. There's now a
+1s heartbeat on its own handler - separate from the action handler, which gets
+wholesale-cleared on stop and skip.
+
+**It stopped doing anything.** Niche matching read the author only if the text started
+with `@`, the caption only if it contained `#`, and the sound only via a
+"sound"/"music" content description. On most feed frames all three came back empty, so
+every video scored zero against the niche, was treated as "not yours", and got skipped
+at 2s with no engagement. Forever.
+
+The flaw underneath was worse than the symptom: **"I couldn't read the caption" and
+"this isn't your niche" were the same outcome**, and that outcome was total inaction.
+
+- Matching now reads *all* text in the content area, excluding nav chrome and the
+  rail's own count labels
+- Match is three-state. `UNKNOWN` - nothing readable - gets a middling watch time and
+  30% of your engagement rates, so an unreadable feed degrades instead of dying
+- A **What it's reading** card shows the exact caption text captured, the unreadable
+  run length and the live match rate, so this can never fail silently again
+
+**Search results are now worked properly.** Results from a niche search are niche by
+construction, so the bot opens the first one and engages through 4-9 videos there
+before returning to For You. It's the only place engagement is guaranteed to land on
+the right content, which makes it the fastest way to move the interest graph while the
+For You page is still cold. When the match rate is under 20%, searches fire every 6-12
+videos instead of every 18-40.
+
 ## v3.0 - niche targeting
 
 **The bot was training the algorithm against you.** It liked and saved whatever the
