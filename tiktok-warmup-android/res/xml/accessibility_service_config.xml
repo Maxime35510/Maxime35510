@@ -1,9 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  typeWindowContentChanged is deliberately NOT subscribed: TikTok is a video feed, so
+  its content changes continuously and the system was serialising a constant event
+  stream to a callback that does nothing. The service polls instead. That subscription
+  was the main cause of system-wide lag.
+-->
 <accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
-    android:accessibilityEventTypes="typeWindowStateChanged|typeWindowContentChanged"
+    android:accessibilityEventTypes="typeWindowStateChanged"
     android:accessibilityFeedbackType="feedbackGeneric"
-    android:accessibilityFlags="flagDefault|flagRetrieveInteractiveWindows|flagReportViewIds"
+    android:accessibilityFlags="flagDefault|flagRetrieveInteractiveWindows"
     android:canPerformGestures="true"
     android:canRetrieveWindowContent="true"
-    android:notificationTimeout="100"
+    android:notificationTimeout="500"
     android:description="@string/service_desc" />

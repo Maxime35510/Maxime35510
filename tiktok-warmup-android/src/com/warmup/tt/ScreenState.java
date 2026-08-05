@@ -271,6 +271,71 @@ public final class ScreenState {
         return null;
     }
 
+    /** Bottom-nav Profile tab - rightmost item in the nav strip. */
+    public Item profileTab() {
+        Item best = null;
+        for (Item it : items) {
+            if (!it.clickable) continue;
+            if (it.cy() < height * 0.92) continue;
+            if (it.bounds.width() > width * 0.35) continue;
+            if (best == null || it.cx() > best.cx()) best = it;
+        }
+        return best;
+    }
+
+    /**
+     * Play counts on the tiles of a profile grid. Used to snapshot your own videos'
+     * performance over time - TikTok shows current numbers but keeps no history.
+     */
+    public List<Long> tileCounts() {
+        List<Long> out = new ArrayList<Long>();
+        for (Item it : items) {
+            if (it.cy() < height * 0.30) continue;
+            String s = it.text.length() > 0 ? it.text : it.desc;
+            if (s.length() == 0 || s.length() > 8) continue;
+            long v = parseCount(s);
+            if (v > 0) out.add(v);
+        }
+        return out;
+    }
+
+    /** Like count off the rail, e.g. "like 12.3k" -> 12300. */
+    public long likeCount()    { return countNear(Words.LIKE); }
+    public long commentTotal() { return countNear(Words.COMMENT); }
+
+    private long countNear(String[] needles) {
+        for (Item it : items) {
+            String s = it.desc.length() > 0 ? it.desc : it.text;
+            for (String n : needles) {
+                if (s.contains(n)) {
+                    long v = parseCount(s);
+                    if (v > 0) return v;
+                }
+            }
+        }
+        return 0;
+    }
+
+    /** Handles 418, 12.3k, 1,2 k, 4.5m. */
+    public static long parseCount(String s) {
+        if (s == null) return 0;
+        String t = s.toLowerCase().replace(',', '.');
+        int i = 0, n = t.length();
+        while (i < n && !Character.isDigit(t.charAt(i))) i++;
+        if (i >= n) return 0;
+        int start = i;
+        while (i < n && (Character.isDigit(t.charAt(i)) || t.charAt(i) == '.')) i++;
+        String num = t.substring(start, i);
+        while (i < n && t.charAt(i) == ' ') i++;
+        char suffix = i < n ? t.charAt(i) : ' ';
+        double v;
+        try { v = Double.parseDouble(num); } catch (Exception e) { return 0; }
+        if (suffix == 'k') v *= 1000;
+        else if (suffix == 'm') v *= 1000000;
+        else if (suffix == 'b') v *= 1000000000L;
+        return (long) v;
+    }
+
     /** Roughly how many comments the sheet is showing, for dwell scaling. */
     public int commentCount() {
         for (Item it : items) {

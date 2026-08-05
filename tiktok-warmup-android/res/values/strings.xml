@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Warmup</string>
-    <string name="service_desc">Dispatches swipe and tap gestures to the foreground app on a randomised schedule.</string>
+    <string name="app_name">TikTok Boost</string>
+    <string name="service_desc">Reads the screen to identify videos in your niche, and performs swipe and tap gestures on your behalf.</string>
 </resources>

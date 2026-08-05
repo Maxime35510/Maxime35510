@@ -3,111 +3,232 @@ package com.warmup.tt;
 import android.content.Context;
 import android.graphics.PixelFormat;
 import android.os.Build;
+import android.os.Handler;
+import android.os.Looper;
 import android.view.Gravity;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.WindowManager;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
 /**
- * Always-on-top stop control.
+ * Floating control panel.
+ *
+ * Collapsed it's a small draggable pill showing state and time left. Tapped, it opens
+ * into a panel with live stats and controls, then auto-collapses so it stops covering
+ * the feed.
  *
  * Uses TYPE_ACCESSIBILITY_OVERLAY, which an accessibility service may add without the
- * "display over other apps" permission - so there is no extra prompt to grant.
+ * "display over other apps" permission, so there's no extra prompt.
  *
- * Parked on the LEFT edge at mid height on purpose: the bot's own targets are the
- * right-hand rail (x > 0.78W), the screen centre and the bottom nav, so it can never
- * tap its own stop button.
+ * Parked on the LEFT edge: the bot's own targets are the right-hand rail (x > 0.78W),
+ * the screen centre and the bottom nav, so it can never tap its own controls.
  */
 public final class OverlayController {
 
     public interface Listener {
         void onOverlayStart();
         void onOverlayStop();
+        void onOverlayPause();
+        void onOverlaySkip();
         void onOverlayDismiss();
     }
 
     public enum Mode { ARMED, RUNNING }
 
+    private static final long AUTO_COLLAPSE_MS = 7000;
+
     private final Context ctx;
     private final Listener listener;
-    private Mode mode = Mode.ARMED;
+    private final Handler h = new Handler(Looper.getMainLooper());
+
     private WindowManager wm;
-    private View root;
-    private TextView label;
-    private View dot;
     private WindowManager.LayoutParams lp;
-    private boolean shown = false;
+    private LinearLayout root;
+
+    // collapsed
+    private LinearLayout pill;
+    private View dot;
+    private TextView pillText;
+
+    // expanded
+    private LinearLayout panel;
+    private TextView title, timeText, statLine1, statLine2, statLine3;
+    private TextView pauseBtn, skipBtn, mainBtn;
+
+    private Mode mode = Mode.ARMED;
+    private boolean shown = false, expanded = false, paused = false;
 
     public OverlayController(Context ctx, Listener listener) {
         this.ctx = ctx;
         this.listener = listener;
     }
 
-    public void setMode(Mode m) {
-        mode = m;
-        if (!shown || root == null) return;
-        root.post(new Runnable() {
-            @Override public void run() {
-                try {
-                    if (mode == Mode.ARMED) {
-                        label.setText("START");
-                        dot.setBackground(Theme.accentCircle(ctx));
-                    } else {
-                        label.setText("STOP");
-                        dot.setBackground(Theme.dangerCircle(ctx));
-                    }
-                } catch (Throwable ignored) { }
-            }
-        });
-    }
-
-    public Mode mode() { return mode; }
+    // ------------------------------------------------------------------ show
 
     public void show() {
         if (shown) return;
         try {
             wm = (WindowManager) ctx.getSystemService(Context.WINDOW_SERVICE);
 
-            LinearLayout row = new LinearLayout(ctx);
-            row.setOrientation(LinearLayout.HORIZONTAL);
-            row.setGravity(Gravity.CENTER_VERTICAL);
-            int padH = Theme.dp(ctx, 12), padV = Theme.dp(ctx, 9);
-            row.setPadding(padH, padV, padH, padV);
-            row.setBackground(Theme.solid(ctx, Theme.fade(Theme.BG, 0xE0), 22));
-
-            dot = new View(ctx);
-            dot.setBackground(Theme.accentCircle(ctx));
-            LinearLayout.LayoutParams dlp = new LinearLayout.LayoutParams(
-                    Theme.dp(ctx, 10), Theme.dp(ctx, 10));
-            dlp.rightMargin = Theme.dp(ctx, 8);
-            row.addView(dot, dlp);
-
-            label = new TextView(ctx);
-            Theme.style(label, 12f, Theme.TEXT, true);
-            label.setText(mode == Mode.ARMED ? "START" : "STOP");
-            row.addView(label);
+            root = new LinearLayout(ctx);
+            root.setOrientation(LinearLayout.VERTICAL);
+            root.addView(buildPill());
+            root.addView(buildPanel());
+            panel.setVisibility(View.GONE);
 
             lp = new WindowManager.LayoutParams(
                     WindowManager.LayoutParams.WRAP_CONTENT,
                     WindowManager.LayoutParams.WRAP_CONTENT,
                     overlayType(),
                     WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
-                            | WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
-                            | WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+                            | WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
                     PixelFormat.TRANSLUCENT);
             lp.gravity = Gravity.TOP | Gravity.START;
-            lp.x = Theme.dp(ctx, 6);
+            lp.x = Theme.dp(ctx, 8);
             lp.y = ctx.getResources().getDisplayMetrics().heightPixels / 2;
 
-            row.setOnTouchListener(new Dragger());
-            wm.addView(row, lp);
-            root = row;
+            wm.addView(root, lp);
             shown = true;
+            applyMode();
         } catch (Throwable t) {
             shown = false;
         }
+    }
+
+    private LinearLayout buildPill() {
+        pill = new LinearLayout(ctx);
+        pill.setOrientation(LinearLayout.HORIZONTAL);
+        pill.setGravity(Gravity.CENTER_VERTICAL);
+        int ph = Theme.dp(ctx, 13), pv = Theme.dp(ctx, 10);
+        pill.setPadding(ph, pv, ph, pv);
+        pill.setBackground(Theme.solid(ctx, Theme.fade(Theme.BG, 0xEE), 24));
+
+        dot = new View(ctx);
+        dot.setBackground(Theme.accentCircle(ctx));
+        LinearLayout.LayoutParams dlp = new LinearLayout.LayoutParams(
+                Theme.dp(ctx, 11), Theme.dp(ctx, 11));
+        dlp.rightMargin = Theme.dp(ctx, 9);
+        pill.addView(dot, dlp);
+
+        pillText = new TextView(ctx);
+        Theme.style(pillText, 13f, Theme.TEXT, true);
+        pillText.setText("START");
+        pill.addView(pillText);
+
+        pill.setOnTouchListener(new Dragger());
+        return pill;
+    }
+
+    private LinearLayout buildPanel() {
+        panel = new LinearLayout(ctx);
+        panel.setOrientation(LinearLayout.VERTICAL);
+        int q = Theme.dp(ctx, 14);
+        panel.setPadding(q, q, q, q);
+        panel.setBackground(Theme.card(ctx, Theme.fade(Theme.CARD, 0xF5), 16));
+        LinearLayout.LayoutParams plp = new LinearLayout.LayoutParams(
+                Theme.dp(ctx, 208), ViewGroup.LayoutParams.WRAP_CONTENT);
+        plp.topMargin = Theme.dp(ctx, 6);
+        panel.setLayoutParams(plp);
+
+        LinearLayout head = new LinearLayout(ctx);
+        head.setOrientation(LinearLayout.HORIZONTAL);
+        head.setGravity(Gravity.CENTER_VERTICAL);
+
+        title = new TextView(ctx);
+        Theme.style(title, 11f, Theme.FAINT, true);
+        title.setLetterSpacing(0.12f);
+        title.setText("BOOST");
+        head.addView(title, new LinearLayout.LayoutParams(
+                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+
+        timeText = new TextView(ctx);
+        Theme.style(timeText, 15f, Theme.TEXT, true);
+        head.addView(timeText);
+        panel.addView(head, wide());
+
+        statLine1 = addStat();
+        statLine2 = addStat();
+        statLine3 = addStat();
+
+        LinearLayout row = new LinearLayout(ctx);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        LinearLayout.LayoutParams rlp = wide();
+        rlp.topMargin = Theme.dp(ctx, 12);
+        pauseBtn = smallBtn("PAUSE", Theme.WARN);
+        skipBtn  = smallBtn("SKIP",  Theme.MUTED);
+        LinearLayout.LayoutParams a = new LinearLayout.LayoutParams(
+                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+        LinearLayout.LayoutParams b = new LinearLayout.LayoutParams(
+                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+        b.leftMargin = Theme.dp(ctx, 8);
+        row.addView(pauseBtn, a);
+        row.addView(skipBtn, b);
+        panel.addView(row, rlp);
+
+        pauseBtn.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) {
+                if (listener != null) listener.onOverlayPause();
+                bumpCollapse();
+            }
+        });
+        skipBtn.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) {
+                if (listener != null) listener.onOverlaySkip();
+                bumpCollapse();
+            }
+        });
+
+        mainBtn = new TextView(ctx);
+        mainBtn.setGravity(Gravity.CENTER);
+        Theme.style(mainBtn, 14f, 0xFF07131A, true);
+        mainBtn.setPadding(0, Theme.dp(ctx, 12), 0, Theme.dp(ctx, 12));
+        LinearLayout.LayoutParams mlp = wide();
+        mlp.topMargin = Theme.dp(ctx, 8);
+        mainBtn.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) {
+                if (listener == null) return;
+                if (mode == Mode.ARMED) listener.onOverlayStart();
+                else listener.onOverlayStop();
+                collapse();
+            }
+        });
+        panel.addView(mainBtn, mlp);
+
+        TextView hint = new TextView(ctx);
+        Theme.style(hint, 9f, Theme.FAINT, false);
+        hint.setGravity(Gravity.CENTER);
+        hint.setText("long-press the pill to hide");
+        LinearLayout.LayoutParams hlp = wide();
+        hlp.topMargin = Theme.dp(ctx, 8);
+        panel.addView(hint, hlp);
+
+        return panel;
+    }
+
+    private TextView addStat() {
+        TextView t = new TextView(ctx);
+        Theme.style(t, 11f, Theme.MUTED, false);
+        t.setPadding(0, Theme.dp(ctx, 5), 0, 0);
+        panel.addView(t, wide());
+        return t;
+    }
+
+    private TextView smallBtn(String text, int colour) {
+        TextView t = new TextView(ctx);
+        t.setText(text);
+        t.setGravity(Gravity.CENTER);
+        Theme.style(t, 11f, colour, true);
+        t.setPadding(0, Theme.dp(ctx, 10), 0, Theme.dp(ctx, 10));
+        t.setBackground(Theme.pressable(Theme.card(ctx, Theme.CARD_HI, 9)));
+        return t;
+    }
+
+    private LinearLayout.LayoutParams wide() {
+        return new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
     }
 
     private static int overlayType() {
@@ -117,35 +238,103 @@ public final class OverlayController {
         return WindowManager.LayoutParams.TYPE_SYSTEM_ALERT;
     }
 
-    /** Only meaningful while running; ARMED keeps showing START. */
-    public void update(final String text, final boolean paused) {
-        if (!shown || root == null || mode != Mode.RUNNING) return;
-        root.post(new Runnable() {
+    // ----------------------------------------------------------------- state
+
+    public void setMode(Mode m) {
+        mode = m;
+        if (m == Mode.ARMED) paused = false;
+        post(new Runnable() { @Override public void run() { applyMode(); } });
+    }
+
+    public Mode mode() { return mode; }
+    public boolean isShown() { return shown; }
+
+    public void setPaused(boolean p) {
+        paused = p;
+        post(new Runnable() { @Override public void run() { applyMode(); } });
+    }
+
+    private void applyMode() {
+        if (!shown || root == null) return;
+        try {
+            boolean armed = mode == Mode.ARMED;
+            dot.setBackground(armed ? Theme.accentCircle(ctx)
+                    : (paused ? Theme.solid(ctx, Theme.WARN, 99) : Theme.dangerCircle(ctx)));
+            if (armed) pillText.setText("START");
+            mainBtn.setText(armed ? "START" : "STOP");
+            mainBtn.setBackground(Theme.pressable(
+                    armed ? Theme.accent(ctx, 10) : Theme.solid(ctx, Theme.DANGER, 10)));
+            pauseBtn.setText(paused ? "RESUME" : "PAUSE");
+            pauseBtn.setVisibility(armed ? View.GONE : View.VISIBLE);
+            skipBtn.setVisibility(armed ? View.GONE : View.VISIBLE);
+            title.setText(armed ? "READY" : (paused ? "PAUSED" : "BOOSTING"));
+        } catch (Throwable ignored) { }
+    }
+
+    /** Live figures pushed from the service each cycle. */
+    public void updateStats(final String time, final int videos, final int matchedPct,
+                            final String screen, final String action,
+                            final boolean nicheMatch, final String counts) {
+        if (!shown || root == null) return;
+        post(new Runnable() {
             @Override public void run() {
                 try {
-                    label.setText(text);
-                    dot.setBackground(paused ? Theme.solid(ctx, Theme.WARN, 99)
-                                             : Theme.dangerCircle(ctx));
+                    if (mode == Mode.RUNNING) pillText.setText(time);
+                    timeText.setText(time);
+                    statLine1.setText(videos + " videos  ·  " + matchedPct + "% niche");
+                    statLine2.setText(screen.toLowerCase() + "  ·  " + action);
+                    statLine3.setText(counts);
+                    statLine2.setTextColor(nicheMatch ? Theme.ACCENT_A : Theme.MUTED);
                 } catch (Throwable ignored) { }
             }
         });
     }
 
+    private void post(Runnable r) {
+        if (root != null) root.post(r); else h.post(r);
+    }
+
+    // -------------------------------------------------------------- expanding
+
+    private void toggle() {
+        if (expanded) collapse(); else expand();
+    }
+
+    private void expand() {
+        if (!shown) return;
+        expanded = true;
+        panel.setVisibility(View.VISIBLE);
+        bumpCollapse();
+    }
+
+    private void collapse() {
+        if (!shown) return;
+        expanded = false;
+        panel.setVisibility(View.GONE);
+        h.removeCallbacks(autoCollapse);
+    }
+
+    private final Runnable autoCollapse = new Runnable() {
+        @Override public void run() { collapse(); }
+    };
+
+    private void bumpCollapse() {
+        h.removeCallbacks(autoCollapse);
+        h.postDelayed(autoCollapse, AUTO_COLLAPSE_MS);
+    }
+
     public void hide() {
+        h.removeCallbacksAndMessages(null);
         if (!shown || root == null) return;
         try { wm.removeView(root); } catch (Throwable ignored) { }
         root = null;
         shown = false;
+        expanded = false;
     }
 
-    public boolean isShown() { return shown; }
-
-    /**
-     * Drag to reposition. A tap starts or stops the session depending on mode; a long
-     * press hides the bubble entirely.
-     */
+    /** Drag to move, tap to open the panel, long-press to hide entirely. */
     private final class Dragger implements View.OnTouchListener {
-        private static final long LONG_PRESS_MS = 600;
+        private static final long LONG_PRESS_MS = 650;
         private int startX, startY;
         private float touchX, touchY;
         private long downAt;
@@ -158,7 +347,7 @@ public final class OverlayController {
                     touchX = e.getRawX(); touchY = e.getRawY();
                     downAt = System.currentTimeMillis();
                     moved = false;
-                    v.setAlpha(0.75f);
+                    v.setAlpha(0.7f);
                     return true;
                 case MotionEvent.ACTION_MOVE:
                     int dx = (int) (e.getRawX() - touchX);
@@ -176,10 +365,8 @@ public final class OverlayController {
                     if (moved || listener == null) return true;
                     if (System.currentTimeMillis() - downAt >= LONG_PRESS_MS) {
                         listener.onOverlayDismiss();
-                    } else if (mode == Mode.ARMED) {
-                        listener.onOverlayStart();
                     } else {
-                        listener.onOverlayStop();
+                        toggle();
                     }
                     return true;
             }

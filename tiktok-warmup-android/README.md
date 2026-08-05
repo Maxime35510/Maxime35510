@@ -1,4 +1,4 @@
-# Warmup (Android)
+# TikTok Boost (Android)
 
 An Android port of [l-portet/tiktok-warmup-bot](https://github.com/l-portet/tiktok-warmup-bot),
 rebuilt around a measured model of how people actually watch short-form video.
@@ -7,16 +7,75 @@ The original is a Node script that runs **on a Mac** and plays MP3s out of the l
 speakers; an iPhone next to it picks them up through iOS Voice Control and performs the
 gestures. That needs a computer. This runs entirely on the phone.
 
+## v3.0 - niche targeting
+
+**The bot was training the algorithm against you.** It liked and saved whatever the
+For You page served. If 30% of your feed is your niche, 70% of its engagement was
+teaching TikTok the account is interested in something else. More activity meant more
+dilution.
+
+Everything is now gated on niche match, read from the caption, hashtags, sound and
+author on screen:
+
+| | matched | not matched |
+|---|---|---|
+| watch time | mean 26s, 45% watched to the end, often looped | ~2s, skipped |
+| engagement | full rates | nothing at all |
+
+Completion and rewatch are the strongest interest signals TikTok has - far stronger
+than a like - so concentrating them on niche content is what actually sharpens the
+interest graph. It's also more human: a real enthusiast skips most of a feed in a
+second and watches the thing they care about twice.
+
+Blended watch time now tracks how well-tuned the feed is - 4.5s when only 10% is your
+niche, 21s at 80%. That number rising is the signal that it's working.
+
+**One slider, 1-100**, replacing the Light/Normal/Heavy chips:
+
+| level | likes | saves | comments | follows | reposts |
+|---|---|---|---|---|---|
+| 12 | 4 | 1 | 3 | 0 | 0 |
+| 35 | 17 | 6 | 13 | 1 | 3 |
+| 50 | 28 | 11 | 22 | 3 | 8 |
+| 100 | 80 | 40 | 60 | 12 | 40 |
+
+Per 100 *matched* videos. Because matched videos are watched properly, every level
+stays inside its dwell gate - engagement never lands on something that was skipped.
+Individual numbers stay editable; touching one switches the label to Custom.
+`tools/levels.js` prints the whole curve.
+
+**Also new**
+
+- **Auto sessions** - finishes, waits 8-42 minutes, runs again by itself
+- **Your account** - visits your profile once a session and records each video's view
+  count. TikTok keeps no history; this builds it. Read-only
+- **Research ranks by performance** - hashtags and sounds sorted by the median likes
+  of the videos carrying them, niche-matched only, rather than raw frequency
+- **Follow niche creators** - a lasting interest signal, kept deliberately low
+- **Rebuilt floating panel** - collapsed pill with live time, tap to open stats and
+  PAUSE / SKIP / STOP, auto-collapses, long-press to hide
+- New name and launcher icon
+
+**Lag fixed.** Four causes: the service subscribed to `typeWindowContentChanged` on a
+video feed, so the system fed a constant event stream to an empty callback; the
+research log was fully re-read and re-parsed four times a second by the UI poll, which
+is why it worsened as a session ran; the screen was captured 3-5 times per cycle; and
+the notification was rebuilt every tick. Now: window-state events only, cached
+aggregates, one capture per cycle threaded through, notification throttled.
+
+Dry run removed.
+
 ## Install
 
 1. Copy `tiktok-warmup.apk` to the phone and open it. Allow installing from unknown
    sources — it's a self-signed build.
-2. Open **Warmup**, tap the amber banner, and enable the service under
+2. Open **TikTok Boost**, tap the amber banner, and enable the service under
    Installed apps / Downloaded services.
-3. **Turn on Dry run and watch one session before trusting it with anything.**
-4. Set a duration and press START. The app arms a floating button and steps aside.
-5. Open TikTok, then tap the floating button to begin. Tap it again to stop,
-   long-press to hide it.
+3. **Set your niche first** - it drives everything else.
+4. Pick a boost level and duration, then press START. The app arms the floating
+   panel and steps aside.
+5. Open TikTok and tap the pill. Tap it again for stats and controls; long-press
+   to hide it.
 
 Stop it by tapping the floating bubble, the notification's Stop action, or reopening
 the app. It also stops itself if it can't find its way back to the feed.
