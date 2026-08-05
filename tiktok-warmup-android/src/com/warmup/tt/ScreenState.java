@@ -126,30 +126,63 @@ public final class ScreenState {
         return false;
     }
 
+    /**
+     * Order matters, and the feed is tested positively and first.
+     *
+     * The previous classifier asked "does any text contain 'comments'?" - which the
+     * rail's own comment button answers yes to on every single feed frame - and "does
+     * any text contain 'following'?", which the feed's top nav tab also answers yes to.
+     * So the feed was permanently misread as a comment sheet or a profile, and the
+     * recovery path pressed BACK on the feed until TikTok exited to the launcher.
+     *
+     * Text is only trusted now when a structural signal agrees with it.
+     */
     private Screen classify() {
         if (!isTikTok()) return Screen.NOT_TIKTOK;
 
-        // An editable field in the lower third means the comment composer is up.
+        boolean editableLow = false, editableHigh = false, hasEditable = false;
         for (Item it : items) {
-            if (it.editable && it.cy() > height * 0.62) return Screen.COMMENTS;
+            if (!it.editable) continue;
+            hasEditable = true;
+            if (it.cy() > height * 0.60) editableLow = true;
+            if (it.cy() < height * 0.22) editableHigh = true;
         }
-        if (anyText(Words.COMMENTS_HEADER)) return Screen.COMMENTS;
 
-        for (Item it : items) {
-            if (it.editable && it.cy() < height * 0.22) return Screen.SEARCH;
-        }
-        if (anyText(Words.PROFILE_MARKERS)) return Screen.PROFILE;
-        if (rail().size() >= 3) return Screen.FEED;
+        boolean hasRail = rail().size() >= 3;
+
+        // The rail is the feed's signature: a stack of small clickable icons pinned
+        // right, with nothing to type into.
+        if (hasRail && !hasEditable) return Screen.FEED;
+
+        // A comment sheet always carries a composer near the bottom.
+        if (editableLow) return Screen.COMMENTS;
+        if (editableHigh) return Screen.SEARCH;
+        if (hasEditable && keyboardOpen) return Screen.COMMENTS;
+
+        // A profile has follower counts and no rail.
+        if (!hasRail && hasWord(Words.FOLLOWERS)) return Screen.PROFILE;
+
+        // Unknown. Deliberately NOT treated as something to back out of - swiping on
+        // the wrong screen is recoverable, exiting the app is not.
         return Screen.OTHER_TIKTOK;
     }
 
-    private boolean anyText(String[] needles) {
+    /** True only when the word appears as its own label, not inside a longer one. */
+    private boolean hasWord(String[] needles) {
         for (Item it : items) {
             for (String n : needles) {
-                if (it.text.contains(n) || it.desc.contains(n)) return true;
+                if (it.text.equals(n) || it.text.startsWith(n + " ")
+                        || it.text.endsWith(" " + n)) return true;
             }
         }
         return false;
+    }
+
+    /** BACK is only safe where there is genuinely something stacked to dismiss. */
+    public boolean isDismissable() {
+        return screen == Screen.COMMENTS
+                || screen == Screen.PROFILE
+                || screen == Screen.SEARCH;
     }
 
     // ---------------------------------------------------------- rail lookup
@@ -264,8 +297,10 @@ public final class ScreenState {
         static final String[] SHARE     = {"share", "partager", "compartir", "repost"};
         static final String[] PROFILE   = {"profile", "avatar", "profil"};
         static final String[] SEARCH    = {"search", "rechercher", "recherche", "buscar"};
-        static final String[] COMMENTS_HEADER = {"comments", "commentaires"};
-        static final String[] PROFILE_MARKERS = {"followers", "following", "abonnés",
-                                                 "abonnements", "seguidores"};
+        /**
+         * Followers only - never "following". TikTok's feed has a Following tab in the
+         * top nav, so matching it turned every feed frame into a false profile.
+         */
+        static final String[] FOLLOWERS = {"followers", "abonnés", "seguidores"};
     }
 }

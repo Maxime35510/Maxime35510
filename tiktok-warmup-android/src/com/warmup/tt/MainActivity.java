@@ -33,6 +33,7 @@ public class MainActivity extends Activity {
     private final Handler ui = new Handler(Looper.getMainLooper());
 
     private TextView bigButton, statusLine, subStatus, feedView, researchView, serviceWarn;
+    private TextView durationNote, presetDesc;
     private EditText durationInput, nicheInput;
     private final List<TextView> presetChips = new ArrayList<TextView>();
     private int preset;
@@ -162,8 +163,7 @@ public class MainActivity extends Activity {
                 START_DELAY_SECONDS);
         toast(prefs.dryRun()
                 ? "Dry run - watching only, nothing will be tapped"
-                : "Starting in " + START_DELAY_SECONDS + "s, open TikTok now");
-        if (!prefs.dryRun()) moveTaskToBack(true);
+                : "Opening TikTok...");
         refresh();
     }
 
@@ -177,11 +177,18 @@ public class MainActivity extends Activity {
                 InputType.TYPE_CLASS_NUMBER);
         card.addView(durationInput, fill());
 
-        TextView note = new TextView(this);
-        note.setText("Actual length varies 0.75-1.25x so sessions don't end on a round number.");
-        Theme.style(note, 11f, Theme.FAINT, false);
-        note.setPadding(0, Theme.dp(this, 6), 0, Theme.dp(this, 14));
-        card.addView(note, fill());
+        durationNote = new TextView(this);
+        Theme.style(durationNote, 11f, Theme.FAINT, false);
+        durationNote.setPadding(0, Theme.dp(this, 6), 0, Theme.dp(this, 14));
+        card.addView(durationNote, fill());
+        updateDurationNote();
+        durationInput.addTextChangedListener(new android.text.TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence c,int a,int b,int d) { }
+            @Override public void onTextChanged(CharSequence c,int a,int b,int d) { }
+            @Override public void afterTextChanged(android.text.Editable e) {
+                updateDurationNote();
+            }
+        });
 
         card.addView(label("Activity level"));
         LinearLayout row = new LinearLayout(this);
@@ -211,18 +218,43 @@ public class MainActivity extends Activity {
         card.addView(row, rlp);
         paintChips();
 
-        TextView rates = new TextView(this);
-        rates.setText("Normal targets published human rates: ~3.7% likes, <1% saves, "
-                + "~6% comment opens, 8.1s mean watch time.");
-        Theme.style(rates, 11f, Theme.FAINT, false);
-        rates.setPadding(0, Theme.dp(this, 10), 0, 0);
-        card.addView(rates, fill());
+        presetDesc = new TextView(this);
+        Theme.style(presetDesc, 11f, Theme.FAINT, false);
+        presetDesc.setPadding(0, Theme.dp(this, 10), 0, 0);
+        card.addView(presetDesc, fill());
+        paintChips();
 
         card.addView(toggle("Dry run", "Decide and log everything, tap nothing. "
                 + "Watch one session before trusting it.", Prefs.DRY_RUN, false));
     }
 
+    private void updateDurationNote() {
+        if (durationNote == null) return;
+        int d = parseInt(durationInput.getText().toString(), 30);
+        int lo = (int) Math.round(d * 0.75), hi = (int) Math.round(d * 1.25);
+        durationNote.setText("Example: set " + d + " and the session actually runs "
+                + lo + "-" + hi + " min. The exact length is picked when you press "
+                + "START. People don't stop watching on a round number, so neither "
+                + "does this.");
+    }
+
+    private String presetText(int p) {
+        if (p == Prefs.PRESET_LIGHT) {
+            return "LIGHT - per 100 videos: ~2 likes, ~3 comment opens, almost no saves.\n"
+                 + "Quieter than a real person. Use it if you want minimal footprint.";
+        }
+        if (p == Prefs.PRESET_HEAVY) {
+            return "HEAVY - per 100 videos: ~7 likes, ~11 comment opens, ~1 save.\n"
+                 + "Roughly twice as active as a real person. Trains the feed faster, "
+                 + "but the engagement rate stops looking typical.";
+        }
+        return "NORMAL - per 100 videos: ~4 likes, ~6 comment opens, ~1 save.\n"
+             + "This is the measured human average (3.4-4% of views get a like). "
+             + "Recommended.";
+    }
+
     private void paintChips() {
+        if (presetDesc != null) presetDesc.setText(presetText(preset));
         for (int i = 0; i < presetChips.size(); i++) {
             TextView c = presetChips.get(i);
             boolean on = i == preset;
@@ -288,6 +320,27 @@ public class MainActivity extends Activity {
         researchView.setLineSpacing(0f, 1.3f);
         card.addView(researchView, fill());
 
+        TextView export = new TextView(this);
+        export.setText("Share research summary");
+        export.setGravity(Gravity.CENTER);
+        Theme.style(export, 13f, Theme.ACCENT_A, true);
+        export.setPadding(0, Theme.dp(this, 12), 0, Theme.dp(this, 12));
+        export.setBackground(Theme.pressable(Theme.card(this, Theme.CARD_HI, 10)));
+        export.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) {
+                Intent i = new Intent(Intent.ACTION_SEND);
+                i.setType("text/plain");
+                i.putExtra(Intent.EXTRA_SUBJECT, "Niche research");
+                i.putExtra(Intent.EXTRA_TEXT, researchView.getText().toString());
+                try {
+                    startActivity(Intent.createChooser(i, "Share research"));
+                } catch (Throwable t) { toast("Nothing to share with"); }
+            }
+        });
+        LinearLayout.LayoutParams elp = fill();
+        elp.topMargin = Theme.dp(this, 12);
+        card.addView(export, elp);
+
         TextView clear = new TextView(this);
         clear.setText("Clear log");
         clear.setGravity(Gravity.CENTER);
@@ -312,7 +365,7 @@ public class MainActivity extends Activity {
         LinearLayout card = card(root, "Credits");
 
         TextView who = new TextView(this);
-        who.setText("Lou-Ming Dastot");
+        who.setText("Maxime35");
         Theme.style(who, 17f, Theme.TEXT, true);
         card.addView(who, fill());
 
@@ -325,16 +378,6 @@ public class MainActivity extends Activity {
         card.addView(link("Website", "https://louming.dastot.net"));
         card.addView(link("LinkedIn", "https://www.linkedin.com/in/lou-ming-dastot/"));
         card.addView(link("GitHub", "https://github.com/Maxime35510"));
-
-        TextView based = new TextView(this);
-        based.setText("Ported from tiktok-warmup-bot by l-portet (ISC). The original "
-                + "drives an iPhone from a Mac using iOS Voice Control; this rebuilds it "
-                + "natively on Android with a measured behaviour model.");
-        Theme.style(based, 11f, Theme.FAINT, false);
-        based.setPadding(0, Theme.dp(this, 16), 0, Theme.dp(this, 8));
-        card.addView(based, fill());
-
-        card.addView(link("Original project", "https://github.com/l-portet/tiktok-warmup-bot"));
     }
 
     private TextView link(String text, final String url) {

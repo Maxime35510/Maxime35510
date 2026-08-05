@@ -14,10 +14,48 @@ gestures. That needs a computer. This runs entirely on the phone.
 2. Open **Warmup**, tap the amber banner, and enable the service under
    Installed apps / Downloaded services.
 3. **Turn on Dry run and watch one session before trusting it with anything.**
-4. Set a duration, press START, switch to TikTok. Six-second grace period.
+4. Set a duration and press START. TikTok is opened for you after a six-second
+   grace period — no need to switch apps yourself.
 
 Stop it by tapping the floating bubble, the notification's Stop action, or reopening
 the app. It also stops itself if it can't find its way back to the feed.
+
+## v2.1 - the crash loop
+
+Reported symptom: it kept exiting TikTok. The Live log showed why:
+
+```
+23:37:45  session  start, ~39m
+23:37:51  recover  on COMMENTS, pressing back
+23:37:52  recover  on COMMENTS, pressing back
+23:37:53  paused   TikTok not in foreground (launcher)
+```
+
+It was on the feed the entire time. Two classifier rules both fired on ordinary
+feed frames:
+
+- `anyText("comments")` matched the **rail's own comment button**, whose content
+  description reads e.g. *"read or add comments, 418 comments"*
+- `anyText("following")` matched the feed's **Following tab** in the top nav
+
+So every feed frame was read as an open comment sheet or a profile, recovery pressed
+BACK on the feed, and BACK on the feed exits TikTok.
+
+Fixes:
+
+- **The feed is now tested positively and first** - a rail of 3+ small clickable icons
+  pinned right, with nothing editable on screen
+- Comments require an actual **composer** field low on screen; profile requires
+  *followers* (never *following*) **and** no rail; word matching is whole-word
+- **BACK only fires on a screen with something genuinely stacked to dismiss.** An
+  unrecognised screen is no longer backed out of - swiping on the wrong screen is
+  recoverable, exiting the app is not
+- If BACK ever does drop out of TikTok, that proves the screen was misread: the app
+  says so, relaunches TikTok, and disables BACK for the rest of the session
+- **TikTok is launched for you on START**, and relaunched if it disappears
+- Session stops below 15% battery when unplugged
+
+`tools/classify.js` checks the old and new logic against the frame from that log.
 
 ## What changed in v2
 
@@ -142,9 +180,11 @@ ANDROID_HOME=/path/to/android-sdk ./build.sh
 
 ## Credits
 
-**Lou-Ming Dastot** — [website](https://louming.dastot.net) ·
+**Maxime35** — [website](https://louming.dastot.net) ·
 [LinkedIn](https://www.linkedin.com/in/lou-ming-dastot/) ·
 [GitHub](https://github.com/Maxime35510)
 
-Ported from [tiktok-warmup-bot](https://github.com/l-portet/tiktok-warmup-bot) by
-l-portet (ISC).
+Origin note: v1 of this repo was a direct port of l-portet/tiktok-warmup-bot. v2
+replaced the scheduler, gesture layer, screen handling and UI, so no upstream code
+remains and the ISC notice no longer applies. The comparison sections above are kept
+because they document why the current design is what it is.

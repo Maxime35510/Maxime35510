@@ -3,7 +3,11 @@ package com.warmup.tt;
 import android.accessibilityservice.AccessibilityService;
 import android.accessibilityservice.GestureDescription;
 import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
+import android.content.pm.PackageManager;
 import android.graphics.Path;
+import android.os.BatteryManager;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
@@ -39,6 +43,9 @@ public class WarmupService extends AccessibilityService implements OverlayContro
     private long startTime, endTime;
     private int videoCount = 0;
     private int recoveries = 0;
+    private int unknownScreens = 0;
+    private int pausedCycles = 0;
+    private boolean backUnsafe = false;
     private int sinceSearch = 0;
     private int nextSearchAt = 0;
     private String lastAction = "-";
@@ -57,7 +64,7 @@ public class WarmupService extends AccessibilityService implements OverlayContro
     }
 
     @Override
-    public boolean onUnbind(android.content.Intent intent) {
+    public boolean onUnbind(Intent intent) {
         stopSession("service unbound");
         instance = null;
         return super.onUnbind(intent);
@@ -96,6 +103,9 @@ public class WarmupService extends AccessibilityService implements OverlayContro
         paused = false;
         videoCount = 0;
         recoveries = 0;
+        unknownScreens = 0;
+        pausedCycles = 0;
+        backUnsafe = false;
         sinceSearch = 0;
         nextSearchAt = prefs.nicheEnabled() ? behavior.between(2, 6) : Integer.MAX_VALUE;
 
@@ -113,6 +123,14 @@ public class WarmupService extends AccessibilityService implements OverlayContro
         }
         Notifications.show(this, "Warmup running",
                 prefs.dryRun() ? "Dry run - nothing will be tapped" : "Starting...");
+
+        if (!prefs.dryRun()) {
+            if (launchTikTok()) {
+                ActionLog.add("launch", "opening TikTok", false);
+            } else {
+                ActionLog.add("launch", "TikTok not installed?", true);
+            }
+        }
 
         handler.postDelayed(new Runnable() {
             @Override public void run() { loop(); }
@@ -176,26 +194,52 @@ public class WarmupService extends AccessibilityService implements OverlayContro
         }
         behavior.setProgress(progress());
 
+        if (batteryLow()) {
+            stopSession("battery below 15%");
+            return;
+        }
+
         final ScreenState st = ScreenState.capture(this, screenW, screenH);
 
         if (!st.isTikTok()) {
             if (!paused) {
                 paused = true;
+                pausedCycles = 0;
                 ActionLog.add("paused", "TikTok not in foreground (" + shortPkg(st.pkg) + ")",
                         false);
             }
-            tick("waiting for TikTok");
+            pausedCycles++;
+            // Don't sit waiting for a human to switch back - bring it forward.
+            if (pausedCycles == 2 || pausedCycles % 8 == 0) {
+                if (launchTikTok()) ActionLog.add("launch", "reopening TikTok", false);
+            }
+            tick("reopening TikTok");
             later(3000, new Runnable() { @Override public void run() { loop(); } });
             return;
         }
         if (paused) {
             paused = false;
+            pausedCycles = 0;
             ActionLog.add("resumed", "TikTok is back", false);
         }
 
-        if (st.screen != ScreenState.Screen.FEED) {
+        if (st.screen == ScreenState.Screen.OTHER_TIKTOK) {
+            unknownScreens++;
+            if (unknownScreens <= 3) {
+                ActionLog.add("unknown", "screen not recognised, waiting", false);
+                tick("waiting");
+                later(1500, new Runnable() { @Override public void run() { loop(); } });
+                return;
+            }
+            // Give up identifying it and carry on. Swiping on the wrong screen is
+            // recoverable; pressing BACK until the app exits is not.
+            ActionLog.add("unknown", "assuming feed, continuing", false);
+            unknownScreens = 0;
+        } else if (st.screen != ScreenState.Screen.FEED) {
             recoverToFeed(st, 0);
             return;
+        } else {
+            unknownScreens = 0;
         }
         recoveries = 0;
 
@@ -223,8 +267,18 @@ public class WarmupService extends AccessibilityService implements OverlayContro
      */
     private void recoverToFeed(ScreenState st, final int attempt) {
         if (!running) return;
-        if (attempt >= 5) {
-            ActionLog.add("recover", "gave up after 5 attempts, on " + st.screen, false);
+
+        // Only ever back out of something that is genuinely stacked on top of the
+        // feed. Anything else and we leave the app.
+        if (!st.isDismissable() || backUnsafe) {
+            ActionLog.add("recover", "not backing out of " + st.screen
+                    + (backUnsafe ? " (back disabled)" : ""), true);
+            later(1500, new Runnable() { @Override public void run() { loop(); } });
+            return;
+        }
+
+        if (attempt >= 4) {
+            ActionLog.add("recover", "gave up after 4 attempts, on " + st.screen, false);
             recoveries++;
             if (recoveries >= 3) {
                 stopSession("cannot reach the feed");
@@ -243,13 +297,57 @@ public class WarmupService extends AccessibilityService implements OverlayContro
             @Override public void run() {
                 ScreenState now = ScreenState.capture(
                         WarmupService.this, screenW, screenH);
-                if (!now.isTikTok() || now.screen == ScreenState.Screen.FEED) {
+
+                // BACK dropped us out of TikTok, so the screen we "recovered" from was
+                // really the feed. Stop trusting BACK for the rest of the session.
+                if (!now.isTikTok()) {
+                    backUnsafe = true;
+                    ActionLog.add("recover",
+                            "back exited TikTok - misread the screen, disabling back", false);
+                    launchTikTok();
+                    later(2500, new Runnable() { @Override public void run() { loop(); } });
+                    return;
+                }
+                if (now.screen == ScreenState.Screen.FEED) {
                     loop();
                 } else {
                     recoverToFeed(now, attempt + 1);
                 }
             }
         });
+    }
+
+    /** Bring TikTok to the front. Used on start and whenever it disappears. */
+    private boolean launchTikTok() {
+        if (prefs != null && prefs.dryRun()) return false;
+        try {
+            PackageManager pm = getPackageManager();
+            for (String p : ScreenState.TIKTOK_PACKAGES) {
+                Intent i = pm.getLaunchIntentForPackage(p);
+                if (i != null) {
+                    i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK
+                            | Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED);
+                    startActivity(i);
+                    return true;
+                }
+            }
+        } catch (Throwable ignored) { }
+        return false;
+    }
+
+    private boolean batteryLow() {
+        try {
+            Intent b = registerReceiver(null,
+                    new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
+            if (b == null) return false;
+            int level = b.getIntExtra(BatteryManager.EXTRA_LEVEL, -1);
+            int scale = b.getIntExtra(BatteryManager.EXTRA_SCALE, -1);
+            int plugged = b.getIntExtra(BatteryManager.EXTRA_PLUGGED, 0);
+            if (level < 0 || scale <= 0 || plugged != 0) return false;
+            return (level * 100 / scale) < 15;
+        } catch (Throwable t) {
+            return false;
+        }
     }
 
     // --------------------------------------------------------- watch a video
