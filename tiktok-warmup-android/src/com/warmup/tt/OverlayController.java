@@ -22,10 +22,17 @@ import android.widget.TextView;
  */
 public final class OverlayController {
 
-    public interface OnStop { void stop(); }
+    public interface Listener {
+        void onOverlayStart();
+        void onOverlayStop();
+        void onOverlayDismiss();
+    }
+
+    public enum Mode { ARMED, RUNNING }
 
     private final Context ctx;
-    private final OnStop onStop;
+    private final Listener listener;
+    private Mode mode = Mode.ARMED;
     private WindowManager wm;
     private View root;
     private TextView label;
@@ -33,10 +40,30 @@ public final class OverlayController {
     private WindowManager.LayoutParams lp;
     private boolean shown = false;
 
-    public OverlayController(Context ctx, OnStop onStop) {
+    public OverlayController(Context ctx, Listener listener) {
         this.ctx = ctx;
-        this.onStop = onStop;
+        this.listener = listener;
     }
+
+    public void setMode(Mode m) {
+        mode = m;
+        if (!shown || root == null) return;
+        root.post(new Runnable() {
+            @Override public void run() {
+                try {
+                    if (mode == Mode.ARMED) {
+                        label.setText("START");
+                        dot.setBackground(Theme.accentCircle(ctx));
+                    } else {
+                        label.setText("STOP");
+                        dot.setBackground(Theme.dangerCircle(ctx));
+                    }
+                } catch (Throwable ignored) { }
+            }
+        });
+    }
+
+    public Mode mode() { return mode; }
 
     public void show() {
         if (shown) return;
@@ -59,7 +86,7 @@ public final class OverlayController {
 
             label = new TextView(ctx);
             Theme.style(label, 12f, Theme.TEXT, true);
-            label.setText("STOP");
+            label.setText(mode == Mode.ARMED ? "START" : "STOP");
             row.addView(label);
 
             lp = new WindowManager.LayoutParams(
@@ -90,14 +117,15 @@ public final class OverlayController {
         return WindowManager.LayoutParams.TYPE_SYSTEM_ALERT;
     }
 
+    /** Only meaningful while running; ARMED keeps showing START. */
     public void update(final String text, final boolean paused) {
-        if (!shown || root == null) return;
+        if (!shown || root == null || mode != Mode.RUNNING) return;
         root.post(new Runnable() {
             @Override public void run() {
                 try {
                     label.setText(text);
-                    dot.setBackground(paused ? Theme.dangerCircle(ctx)
-                                             : Theme.accentCircle(ctx));
+                    dot.setBackground(paused ? Theme.solid(ctx, Theme.WARN, 99)
+                                             : Theme.dangerCircle(ctx));
                 } catch (Throwable ignored) { }
             }
         });
@@ -112,10 +140,15 @@ public final class OverlayController {
 
     public boolean isShown() { return shown; }
 
-    /** Drag to reposition; a tap without meaningful movement stops the session. */
+    /**
+     * Drag to reposition. A tap starts or stops the session depending on mode; a long
+     * press hides the bubble entirely.
+     */
     private final class Dragger implements View.OnTouchListener {
+        private static final long LONG_PRESS_MS = 600;
         private int startX, startY;
         private float touchX, touchY;
+        private long downAt;
         private boolean moved;
 
         @Override public boolean onTouch(View v, MotionEvent e) {
@@ -123,6 +156,7 @@ public final class OverlayController {
                 case MotionEvent.ACTION_DOWN:
                     startX = lp.x; startY = lp.y;
                     touchX = e.getRawX(); touchY = e.getRawY();
+                    downAt = System.currentTimeMillis();
                     moved = false;
                     v.setAlpha(0.75f);
                     return true;
@@ -139,7 +173,14 @@ public final class OverlayController {
                 case MotionEvent.ACTION_UP:
                 case MotionEvent.ACTION_CANCEL:
                     v.setAlpha(1f);
-                    if (!moved && onStop != null) onStop.stop();
+                    if (moved || listener == null) return true;
+                    if (System.currentTimeMillis() - downAt >= LONG_PRESS_MS) {
+                        listener.onOverlayDismiss();
+                    } else if (mode == Mode.ARMED) {
+                        listener.onOverlayStart();
+                    } else {
+                        listener.onOverlayStop();
+                    }
                     return true;
             }
             return false;

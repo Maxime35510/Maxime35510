@@ -26,7 +26,7 @@ import java.util.Random;
  * without knowing what is under it, and the session pauses rather than dispatching
  * gestures into whatever app happens to be in front.
  */
-public class WarmupService extends AccessibilityService implements OverlayController.OnStop {
+public class WarmupService extends AccessibilityService implements OverlayController.Listener {
 
     public static volatile WarmupService instance;
 
@@ -49,6 +49,7 @@ public class WarmupService extends AccessibilityService implements OverlayContro
     private int sinceSearch = 0;
     private int nextSearchAt = 0;
     private String lastAction = "-";
+    private String detected = "-";
 
     private int screenW = 1080, screenH = 2400;
 
@@ -66,6 +67,7 @@ public class WarmupService extends AccessibilityService implements OverlayContro
     @Override
     public boolean onUnbind(Intent intent) {
         stopSession("service unbound");
+        if (overlay != null) overlay.hide();
         instance = null;
         return super.onUnbind(intent);
     }
@@ -73,6 +75,7 @@ public class WarmupService extends AccessibilityService implements OverlayContro
     @Override
     public void onDestroy() {
         stopSession("service destroyed");
+        if (overlay != null) overlay.hide();
         instance = null;
         super.onDestroy();
     }
@@ -95,7 +98,7 @@ public class WarmupService extends AccessibilityService implements OverlayContro
     public void startSession(int minutes, int startDelaySeconds) {
         measureScreen();
         prefs = new Prefs(this);
-        behavior = new Behavior(prefs.preset());
+        behavior = new Behavior(prefs.rates());
         research = new ResearchLog(this);
 
         ActionLog.reset();
@@ -120,38 +123,62 @@ public class WarmupService extends AccessibilityService implements OverlayContro
         if (prefs.overlay()) {
             if (overlay == null) overlay = new OverlayController(this, this);
             overlay.show();
+            overlay.setMode(OverlayController.Mode.RUNNING);
         }
         Notifications.show(this, "Warmup running",
                 prefs.dryRun() ? "Dry run - nothing will be tapped" : "Starting...");
-
-        if (!prefs.dryRun()) {
-            if (launchTikTok()) {
-                ActionLog.add("launch", "opening TikTok", false);
-            } else {
-                ActionLog.add("launch", "TikTok not installed?", true);
-            }
-        }
 
         handler.postDelayed(new Runnable() {
             @Override public void run() { loop(); }
         }, delay);
     }
 
+    /**
+     * Show the floating button without starting anything. The user then opens TikTok
+     * themselves and taps the bubble - which avoids Android 10+'s block on starting
+     * activities from the background, the reason auto-launch never worked.
+     */
+    public void arm() {
+        prefs = new Prefs(this);
+        if (overlay == null) overlay = new OverlayController(this, this);
+        overlay.setMode(OverlayController.Mode.ARMED);
+        overlay.show();
+        ActionLog.add("armed", "open TikTok, then tap the bubble", false);
+    }
+
+    public void disarm() {
+        stopSession("dismissed");
+        if (overlay != null) overlay.hide();
+    }
+
+    public boolean isArmed() { return overlay != null && overlay.isShown(); }
+
     public void stopSession(String reason) {
         if (running) ActionLog.add("session", "stopped (" + reason + ")", false);
         running = false;
         paused = false;
         handler.removeCallbacksAndMessages(null);
-        if (overlay != null) overlay.hide();
+        // Keep the bubble on screen, back in START mode, so it can be restarted.
+        if (overlay != null && overlay.isShown()) {
+            overlay.setMode(OverlayController.Mode.ARMED);
+        }
         Notifications.clear(this);
     }
 
-    @Override public void stop() { stopSession("overlay"); }
+    @Override public void onOverlayStart() {
+        if (running || prefs == null) return;
+        startSession(prefs.duration(), 3);
+    }
+
+    @Override public void onOverlayStop() { stopSession("bubble"); }
+
+    @Override public void onOverlayDismiss() { disarm(); }
 
     public boolean isRunning()     { return running; }
     public boolean isPaused()      { return paused; }
     public int     videoCount()    { return videoCount; }
     public String  lastAction()    { return lastAction; }
+    public String  detectedScreen() { return detected; }
     public boolean dryRun()        { return prefs != null && prefs.dryRun(); }
 
     public long remainingMs() {
@@ -242,6 +269,7 @@ public class WarmupService extends AccessibilityService implements OverlayContro
             unknownScreens = 0;
         }
         recoveries = 0;
+        detected = st.screen.toString();
 
         if (sinceSearch >= nextSearchAt && prefs.nicheEnabled()) {
             sinceSearch = 0;
@@ -268,17 +296,8 @@ public class WarmupService extends AccessibilityService implements OverlayContro
     private void recoverToFeed(ScreenState st, final int attempt) {
         if (!running) return;
 
-        // Only ever back out of something that is genuinely stacked on top of the
-        // feed. Anything else and we leave the app.
-        if (!st.isDismissable() || backUnsafe) {
-            ActionLog.add("recover", "not backing out of " + st.screen
-                    + (backUnsafe ? " (back disabled)" : ""), true);
-            later(1500, new Runnable() { @Override public void run() { loop(); } });
-            return;
-        }
-
-        if (attempt >= 4) {
-            ActionLog.add("recover", "gave up after 4 attempts, on " + st.screen, false);
+        if (attempt >= 5) {
+            ActionLog.add("recover", "gave up after 5 attempts, on " + st.screen, false);
             recoveries++;
             if (recoveries >= 3) {
                 stopSession("cannot reach the feed");
@@ -288,23 +307,41 @@ public class WarmupService extends AccessibilityService implements OverlayContro
             return;
         }
 
+        // Tapping Home in the bottom nav returns to the feed from anywhere and can
+        // never eject us from the app, so it is always tried before BACK.
+        ScreenState.Item home = st.home();
+        if (home != null && attempt < 3) {
+            ActionLog.add("recover", "on " + st.screen + ", tapping Home", prefs.dryRun());
+            tick("returning to feed");
+            tapItem(home);
+            verifyRecovery(attempt);
+            return;
+        }
+
+        if (!st.isDismissable() || backUnsafe) {
+            ActionLog.add("recover", "not backing out of " + st.screen
+                    + (backUnsafe ? " (back disabled)" : ""), true);
+            later(1500, new Runnable() { @Override public void run() { loop(); } });
+            return;
+        }
+
         ActionLog.add("recover", "on " + st.screen
                 + (st.keyboardOpen ? " + keyboard" : "") + ", pressing back", prefs.dryRun());
         tick("recovering");
         back();
+        verifyRecovery(attempt);
+    }
 
+    private void verifyRecovery(final int attempt) {
         later(behavior.between(700, 1300), new Runnable() {
             @Override public void run() {
                 ScreenState now = ScreenState.capture(
                         WarmupService.this, screenW, screenH);
 
-                // BACK dropped us out of TikTok, so the screen we "recovered" from was
-                // really the feed. Stop trusting BACK for the rest of the session.
                 if (!now.isTikTok()) {
                     backUnsafe = true;
                     ActionLog.add("recover",
-                            "back exited TikTok - misread the screen, disabling back", false);
-                    launchTikTok();
+                            "left TikTok - misread the screen, disabling back", false);
                     later(2500, new Runnable() { @Override public void run() { loop(); } });
                     return;
                 }

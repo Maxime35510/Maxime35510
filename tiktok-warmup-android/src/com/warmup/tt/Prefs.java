@@ -14,6 +14,26 @@ public final class Prefs {
     public static final String SCHEDULER     = "schedulerMode";    // 0 human, 1 upstream
     public static final String DRY_RUN       = "dryRun";
 
+    // -- rates, per 100 videos watched ------------------------------------
+    public static final String R_LIKE     = "rateLike";
+    public static final String R_SAVE     = "rateSave";
+    public static final String R_COMMENT  = "rateCommentOpen";
+    public static final String R_CLIKE    = "rateCommentLike";
+    public static final String R_PROFILE  = "rateProfile";
+    public static final String R_REPOST   = "rateRepost";
+    public static final String R_REWATCH  = "rateRewatch";
+
+    /** {like, save, commentOpen, commentLike, profile, repost, rewatch} */
+    public static final int[] LIGHT_RATES  = {  2, 0,  3, 1, 1, 0, 2 };
+    public static final int[] NORMAL_RATES = {  4, 1,  6, 2, 1, 0, 3 };
+    public static final int[] HEAVY_RATES  = { 15, 3, 12, 5, 3, 1, 6 };
+
+    public static int[] presetRates(int preset) {
+        if (preset == PRESET_LIGHT) return LIGHT_RATES;
+        if (preset == PRESET_HEAVY) return HEAVY_RATES;
+        return NORMAL_RATES;
+    }
+
     // -- features ---------------------------------------------------------
     public static final String NICHE_TERMS   = "nicheTerms";
     public static final String NICHE_ENABLED = "nicheEnabled";
@@ -59,6 +79,36 @@ public final class Prefs {
     public boolean research()      { return sp.getBoolean(RESEARCH, true); }
     public boolean repost()        { return sp.getBoolean(REPOST, false); }
     public boolean likeComments()  { return sp.getBoolean(LIKE_COMMENTS, true); }
+
+    public Behavior.Rates rates() {
+        return new Behavior.Rates(
+                sp.getInt(R_LIKE,    NORMAL_RATES[0]),
+                sp.getInt(R_SAVE,    NORMAL_RATES[1]),
+                sp.getInt(R_COMMENT, NORMAL_RATES[2]),
+                sp.getInt(R_CLIKE,   NORMAL_RATES[3]),
+                sp.getInt(R_PROFILE, NORMAL_RATES[4]),
+                sp.getInt(R_REPOST,  NORMAL_RATES[5]),
+                sp.getInt(R_REWATCH, NORMAL_RATES[6]));
+    }
+
+    public static final String[] RATE_KEYS =
+            { R_LIKE, R_SAVE, R_COMMENT, R_CLIKE, R_PROFILE, R_REPOST, R_REWATCH };
+
+    /** Reads one rate, defaulting to the Normal preset rather than zero. */
+    public int rate(String key) {
+        for (int i = 0; i < RATE_KEYS.length; i++) {
+            if (RATE_KEYS[i].equals(key)) return sp.getInt(key, NORMAL_RATES[i]);
+        }
+        return sp.getInt(key, 0);
+    }
+
+    public void applyPreset(int preset) {
+        int[] v = presetRates(preset);
+        SharedPreferences.Editor ed = sp.edit();
+        ed.putInt(PRESET, preset);
+        for (int i = 0; i < RATE_KEYS.length; i++) ed.putInt(RATE_KEYS[i], v[i]);
+        ed.apply();
+    }
 
     public float railX()    { return sp.getFloat(RAIL_X,    D_RAIL_X); }
     public float profileY() { return sp.getFloat(PROFILE_Y, D_PROFILE_Y); }

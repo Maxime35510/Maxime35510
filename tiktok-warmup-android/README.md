@@ -14,11 +14,60 @@ gestures. That needs a computer. This runs entirely on the phone.
 2. Open **Warmup**, tap the amber banner, and enable the service under
    Installed apps / Downloaded services.
 3. **Turn on Dry run and watch one session before trusting it with anything.**
-4. Set a duration and press START. TikTok is opened for you after a six-second
-   grace period — no need to switch apps yourself.
+4. Set a duration and press START. The app arms a floating button and steps aside.
+5. Open TikTok, then tap the floating button to begin. Tap it again to stop,
+   long-press to hide it.
 
 Stop it by tapping the floating bubble, the notification's Stop action, or reopening
 the app. It also stops itself if it can't find its way back to the feed.
+
+## v2.2 - bubble control and custom rates
+
+**Auto-launch never worked, and couldn't.** Android 10+ blocks apps from starting
+activities from the background, which is exactly what the accessibility service was
+attempting. The flow now works with that restriction instead of against it:
+
+1. Press START in the app - it arms the floating button and backs out of the way
+2. Open TikTok yourself
+3. Tap the bubble to start; tap again to stop; long-press to hide it
+
+The bubble shows START when armed and the remaining time when running.
+
+**Recovery prefers the Home tab.** Tapping Home in the bottom nav returns to the feed
+from anywhere and cannot eject you from the app, so it's always tried before BACK.
+Inbox is now a recognised screen alongside feed, comments, profile and search, and the
+detected page is shown live in the app.
+
+**Rates are yours to set.** Every action is a "per 100 videos" number you control:
+likes, saves, comment sections opened, comment likes, profiles, reposts, re-watches.
+Presets just prefill them.
+
+The published ~4-per-100 like rate is an average across all viewers *including people
+who never tap anything*, so an active account genuinely sits well above it. There's no
+single correct number, which is why it's an input.
+
+Each action keeps a dwell gate - a like needs 5s watched, a save 12s - which puts a
+ceiling on what's reachable while staying correlated with watch time:
+
+| action | gate | max per 100 |
+|---|---|---|
+| comment sections | 4s | 50 |
+| likes | 5s | 45 |
+| profiles | 8s | 29 |
+| saves | 12s | 17 |
+| reposts | 15s | 13 |
+
+Ask for more than the ceiling and the gate is dropped rather than silently capped -
+you get the rate you asked for, but around half of it lands on videos skipped in under
+three seconds. The app warns when a number crosses that line. Verified in
+`tools/rates.js`:
+
+```
+action    asked   produced   gate    on <4s videos
+  like      15      15.0      5s        0%
+  like      40      40.0      5s        0%
+  like      60      60.0      0s       49%   <-- gate dropped
+```
 
 ## v2.1 - the crash loop
 

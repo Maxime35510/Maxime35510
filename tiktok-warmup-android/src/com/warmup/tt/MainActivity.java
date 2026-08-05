@@ -36,6 +36,9 @@ public class MainActivity extends Activity {
     private TextView durationNote, presetDesc;
     private EditText durationInput, nicheInput;
     private final List<TextView> presetChips = new ArrayList<TextView>();
+    private final java.util.LinkedHashMap<String, EditText> rateInputs =
+            new java.util.LinkedHashMap<String, EditText>();
+    private TextView rateSummary;
     private int preset;
 
     private final Runnable poll = new Runnable() {
@@ -66,6 +69,7 @@ public class MainActivity extends Activity {
         buildServiceWarning(root);
         buildControl(root);
         buildSession(root);
+        buildRates(root);
         buildNiche(root);
         buildOptions(root);
         buildLiveFeed(root);
@@ -159,11 +163,9 @@ public class MainActivity extends Activity {
             return;
         }
         persist();
-        svc.startSession(parseInt(durationInput.getText().toString(), 30),
-                START_DELAY_SECONDS);
-        toast(prefs.dryRun()
-                ? "Dry run - watching only, nothing will be tapped"
-                : "Opening TikTok...");
+        svc.arm();
+        toast("Open TikTok, then tap the floating START button");
+        moveTaskToBack(true);
         refresh();
     }
 
@@ -187,6 +189,7 @@ public class MainActivity extends Activity {
             @Override public void onTextChanged(CharSequence c,int a,int b,int d) { }
             @Override public void afterTextChanged(android.text.Editable e) {
                 updateDurationNote();
+                updateRateSummary();
             }
         });
 
@@ -203,8 +206,9 @@ public class MainActivity extends Activity {
             chip.setOnClickListener(new View.OnClickListener() {
                 @Override public void onClick(View v) {
                     preset = idx;
+                    prefs.applyPreset(idx);
+                    loadRateInputs();
                     paintChips();
-                    prefs.edit().putInt(Prefs.PRESET, preset).apply();
                 }
             });
             LinearLayout.LayoutParams clp =
@@ -262,6 +266,138 @@ public class MainActivity extends Activity {
             c.setTextColor(on ? 0xFF07131A : Theme.MUTED);
             c.setTypeface(c.getTypeface(), on ? Typeface.BOLD : Typeface.NORMAL);
         }
+    }
+
+    // ----------------------------------------------------------------- rates
+
+    private void buildRates(LinearLayout root) {
+        LinearLayout card = card(root, "Rates");
+
+        TextView intro = new TextView(this);
+        intro.setText("How often to do each thing, per 100 videos watched. The presets "
+                + "above just fill these in - change any number and it becomes yours.\n\n"
+                + "Published averages (~4 likes per 100) are measured across all "
+                + "viewers including people who never tap anything, so an active "
+                + "account sits well above that. Set what matches how you actually "
+                + "use TikTok.");
+        Theme.style(intro, 11f, Theme.FAINT, false);
+        intro.setPadding(0, 0, 0, Theme.dp(this, 6));
+        card.addView(intro, fill());
+
+        addRate(card, "Likes",                  Prefs.R_LIKE,
+                "needs 5s watched  -  max 45 without loosening that");
+        addRate(card, "Saves",                  Prefs.R_SAVE,
+                "needs 12s watched  -  max 17");
+        addRate(card, "Comment sections opened", Prefs.R_COMMENT,
+                "needs 4s watched  -  max 50");
+        addRate(card, "Comment likes",          Prefs.R_CLIKE,
+                "only while a comment section is open");
+        addRate(card, "Profiles opened",        Prefs.R_PROFILE,
+                "needs 8s watched  -  max 29");
+        addRate(card, "Reposts",                Prefs.R_REPOST,
+                "needs 15s watched  -  max 13. Posts to your followers");
+        addRate(card, "Re-watches",             Prefs.R_REWATCH,
+                "swipes back to the previous video");
+
+        rateSummary = new TextView(this);
+        Theme.style(rateSummary, 11f, Theme.ACCENT_A, false);
+        rateSummary.setPadding(0, Theme.dp(this, 14), 0, 0);
+        card.addView(rateSummary, fill());
+        updateRateSummary();
+    }
+
+    private void addRate(LinearLayout card, String title, final String key, String hint) {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setPadding(0, Theme.dp(this, 12), 0, 0);
+
+        LinearLayout left = new LinearLayout(this);
+        left.setOrientation(LinearLayout.VERTICAL);
+
+        TextView t = new TextView(this);
+        t.setText(title);
+        Theme.style(t, 14f, Theme.TEXT, false);
+        left.addView(t);
+
+        TextView h = new TextView(this);
+        h.setText(hint);
+        Theme.style(h, 10f, Theme.FAINT, false);
+        left.addView(h);
+
+        row.addView(left, new LinearLayout.LayoutParams(
+                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+
+        EditText e = new EditText(this);
+        e.setInputType(InputType.TYPE_CLASS_NUMBER);
+        e.setText(String.valueOf(prefs.rate(key)));
+        e.setTextColor(Theme.TEXT);
+        e.setTextSize(16f);
+        e.setGravity(Gravity.CENTER);
+        e.setBackground(Theme.card(this, Theme.CARD_HI, 10));
+        int q = Theme.dp(this, 8);
+        e.setPadding(q, q, q, q);
+        e.addTextChangedListener(new android.text.TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence c,int a,int b,int d) { }
+            @Override public void onTextChanged(CharSequence c,int a,int b,int d) { }
+            @Override public void afterTextChanged(android.text.Editable ed) {
+                prefs.edit().putInt(key, parseInt(ed.toString(), 0)).apply();
+                updateRateSummary();
+            }
+        });
+        row.addView(e, new LinearLayout.LayoutParams(Theme.dp(this, 68),
+                ViewGroup.LayoutParams.WRAP_CONTENT));
+
+        rateInputs.put(key, e);
+        card.addView(row, fill());
+    }
+
+    private void loadRateInputs() {
+        for (java.util.Map.Entry<String, EditText> en : rateInputs.entrySet()) {
+            en.getValue().setText(String.valueOf(prefs.rate(en.getKey())));
+        }
+        updateRateSummary();
+    }
+
+    private void updateRateSummary() {
+        if (rateSummary == null) return;
+        int mins = parseInt(durationInput.getText().toString(), 30);
+        // Mean cycle is the 8.1s mean watch time plus a short reaction gap.
+        int videos = (int) (mins * 60 / 9.2);
+        Behavior.Rates r = prefs.rates();
+        StringBuilder sb = new StringBuilder();
+        sb.append("Estimate for ").append(mins).append(" min: about ").append(videos)
+          .append(" videos, ").append(per(videos, r.like)).append(" likes, ")
+          .append(per(videos, r.save)).append(" saves, ")
+          .append(per(videos, r.commentOpen)).append(" comment sections, ")
+          .append(per(videos, r.repost)).append(" reposts.");
+
+        // Past the ceiling the dwell gate has to be dropped, and engagement starts
+        // landing on videos that were skipped in under three seconds.
+        StringBuilder over = new StringBuilder();
+        ceiling(over, "Likes",   r.like,        45);
+        ceiling(over, "Saves",   r.save,        17);
+        ceiling(over, "Comments",r.commentOpen, 50);
+        ceiling(over, "Profiles",r.profile,     29);
+        ceiling(over, "Reposts", r.repost,      13);
+        if (over.length() > 0) {
+            sb.append("\n\nAbove the ceiling:").append(over)
+              .append("\nThese still hit the rate you asked for, but roughly half will "
+                    + "land on videos skipped in under 3s, which no real viewer does.");
+            rateSummary.setTextColor(Theme.WARN);
+        } else {
+            rateSummary.setTextColor(Theme.ACCENT_A);
+        }
+        rateSummary.setText(sb.toString());
+    }
+
+    private static void ceiling(StringBuilder sb, String name, int value, int max) {
+        if (value > max) sb.append("\n  ").append(name).append(' ').append(value)
+                           .append(" > ").append(max);
+    }
+
+    private static int per(int videos, int per100) {
+        return Math.round(videos * per100 / 100f);
     }
 
     // ----------------------------------------------------------------- niche
@@ -408,7 +544,7 @@ public class MainActivity extends Activity {
         serviceWarn.setVisibility(connected ? View.GONE : View.VISIBLE);
 
         boolean running = connected && svc.isRunning();
-        bigButton.setText(running ? "STOP" : "START");
+        bigButton.setText(running ? "STOP" : (connected && svc.isArmed() ? "ARMED" : "START"));
         bigButton.setBackground(Theme.pressable(
                 running ? Theme.dangerCircle(this) : Theme.accentCircle(this)));
 
@@ -416,13 +552,18 @@ public class MainActivity extends Activity {
             statusLine.setText("Service not enabled");
             subStatus.setText("Warmup needs the accessibility service to read the screen");
         } else if (!running) {
-            statusLine.setText("Ready");
-            subStatus.setText(ActionLog.summary());
+            boolean armed = svc.isArmed();
+            statusLine.setText(armed ? "Armed" : "Ready");
+            subStatus.setText(armed
+                    ? "Open TikTok and tap the floating START button.\n"
+                      + "Long-press the bubble to hide it."
+                    : ActionLog.summary());
         } else {
             long s = svc.remainingMs() / 1000;
             statusLine.setText((svc.isPaused() ? "Paused  -  " : "")
                     + String.format("%d:%02d", s / 60, s % 60) + " left");
             subStatus.setText("video " + svc.videoCount() + "   ·   " + svc.lastAction()
+                    + "\non " + svc.detectedScreen()
                     + (svc.dryRun() ? "   ·   DRY RUN" : ""));
         }
 
@@ -458,6 +599,9 @@ public class MainActivity extends Activity {
         ed.putInt(Prefs.DURATION, parseInt(durationInput.getText().toString(), 30));
         ed.putInt(Prefs.PRESET, preset);
         ed.putString(Prefs.NICHE_TERMS, nicheInput.getText().toString());
+        for (java.util.Map.Entry<String, EditText> en : rateInputs.entrySet()) {
+            ed.putInt(en.getKey(), parseInt(en.getValue().getText().toString(), 0));
+        }
         ed.apply();
     }
 

@@ -29,7 +29,7 @@ public final class ScreenState {
         "com.ss.android.ugc.aweme",   // douyin
     };
 
-    public enum Screen { FEED, COMMENTS, PROFILE, SEARCH, OTHER_TIKTOK, NOT_TIKTOK }
+    public enum Screen { FEED, COMMENTS, PROFILE, SEARCH, INBOX, OTHER_TIKTOK, NOT_TIKTOK }
 
     /** One on-screen element, flattened. */
     public static final class Item {
@@ -161,6 +161,7 @@ public final class ScreenState {
 
         // A profile has follower counts and no rail.
         if (!hasRail && hasWord(Words.FOLLOWERS)) return Screen.PROFILE;
+        if (!hasRail && hasWord(Words.INBOX)) return Screen.INBOX;
 
         // Unknown. Deliberately NOT treated as something to back out of - swiping on
         // the wrong screen is recoverable, exiting the app is not.
@@ -242,6 +243,29 @@ public final class ScreenState {
         return null;
     }
 
+    /**
+     * The Home tab in the bottom nav. Tapping it returns to the feed from anywhere,
+     * which is far safer than pressing BACK and hoping.
+     */
+    public Item home() {
+        for (Item it : items) {
+            if (!it.clickable) continue;
+            if (it.cy() < height * 0.90) continue;
+            for (String n : Words.HOME) {
+                if (it.desc.contains(n) || it.text.contains(n)) return it;
+            }
+        }
+        // Geometric fallback: leftmost clickable item in the bottom nav strip.
+        Item best = null;
+        for (Item it : items) {
+            if (!it.clickable) continue;
+            if (it.cy() < height * 0.92) continue;
+            if (it.bounds.width() > width * 0.35) continue;
+            if (best == null || it.cx() < best.cx()) best = it;
+        }
+        return best;
+    }
+
     public Item editable() {
         for (Item it : items) if (it.editable) return it;
         return null;
@@ -302,5 +326,8 @@ public final class ScreenState {
          * top nav, so matching it turned every feed frame into a false profile.
          */
         static final String[] FOLLOWERS = {"followers", "abonnés", "seguidores"};
+        static final String[] INBOX = {"inbox", "notifications", "activity",
+                                       "boîte de réception", "activité"};
+        static final String[] HOME  = {"home", "accueil", "inicio", "for you", "pour toi"};
     }
 }
