@@ -299,9 +299,36 @@ public final class ScreenState {
         return out;
     }
 
-    /** Like count off the rail, e.g. "like 12.3k" -> 12300. */
-    public long likeCount()    { return countNear(Words.LIKE); }
-    public long commentTotal() { return countNear(Words.COMMENT); }
+    /**
+     * Like count off the rail.
+     *
+     * TikTok renders the number as a separate text node *underneath* the icon rather
+     * than inside its description, so reading the description alone returned nothing.
+     * Falls back to that description if the layout ever changes.
+     */
+    public long likeCount() {
+        long v = countUnder(like());
+        return v > 0 ? v : countNear(Words.LIKE);
+    }
+
+    public long commentTotal() {
+        long v = countUnder(comment());
+        return v > 0 ? v : countNear(Words.COMMENT);
+    }
+
+    /** Nearest numeric label sitting just below an icon in the rail. */
+    private long countUnder(Item icon) {
+        if (icon == null) return 0;
+        Item best = null;
+        for (Item it : items) {
+            if (it.text.length() == 0 || it.text.length() > 10) continue;
+            if (Math.abs(it.cx() - icon.cx()) > width * 0.10) continue;
+            int dy = it.cy() - icon.cy();
+            if (dy < 0 || dy > height * 0.06) continue;
+            if (best == null || it.cy() < best.cy()) best = it;
+        }
+        return best == null ? 0 : parseCount(best.text);
+    }
 
     private long countNear(String[] needles) {
         for (Item it : items) {
@@ -406,9 +433,22 @@ public final class ScreenState {
             if (caption.length() == 0 && s.contains("#")) caption = s;
             if (sound.length() == 0
                     && (it.desc.contains("sound") || it.desc.contains("music")
-                        || it.desc.contains("son") || it.desc.contains("musique"))) {
+                        || it.desc.contains("son") || it.desc.contains("musique")
+                        || s.startsWith("original sound")
+                        || s.startsWith("son original"))) {
                 sound = s;
             }
+        }
+        // The sound label is the bottom-most short line on the left of the caption.
+        if (sound.length() == 0) {
+            Item lowest = null;
+            for (Item it : items) {
+                if (it.text.length() < 3 || it.text.length() > 60) continue;
+                if (it.cx() > width * 0.75) continue;
+                if (it.cy() < height * 0.72 || it.cy() > height * 0.93) continue;
+                if (lowest == null || it.cy() > lowest.cy()) lowest = it;
+            }
+            if (lowest != null) sound = lowest.text;
         }
         // Fall back to the longest line in the content area as the caption.
         if (caption.length() == 0) {

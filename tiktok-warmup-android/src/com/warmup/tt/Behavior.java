@@ -178,8 +178,10 @@ public final class Behavior {
     }
 
     /** Gap between automatic sessions - people come back, they don't run continuously. */
-    public long gapMs() {
-        return (long) ((8 + rnd.nextDouble() * 34) * 60_000L);   // 8-42 min
+    public long gapMs(int minMinutes, int maxMinutes) {
+        int lo = Math.max(1, minMinutes);
+        int hi = Math.max(lo + 1, maxMinutes);
+        return (long) ((lo + rnd.nextDouble() * (hi - lo)) * 60_000L);
     }
 
     // ----------------------------------------------------------- engagement

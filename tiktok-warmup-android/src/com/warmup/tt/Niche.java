@@ -66,6 +66,14 @@ public final class Niche {
         return n;
     }
 
+    /** True when this word is already one of the keywords, or contains one. */
+    public boolean covers(String word) {
+        if (word == null) return false;
+        String w = word.toLowerCase();
+        for (String k : keywords) if (w.contains(k) || k.contains(w)) return true;
+        return false;
+    }
+
     /** One keyword hit is enough - captions are short and hashtags are sparse. */
     public boolean matches(String... fields) { return score(fields) >= 1; }
 }

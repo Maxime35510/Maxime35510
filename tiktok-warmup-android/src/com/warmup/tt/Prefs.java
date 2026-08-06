@@ -14,6 +14,8 @@ public final class Prefs {
     public static final String CUSTOM   = "ratesCustom";     // slider overridden?
     public static final String AUTO     = "autoMode";
     public static final String TARGET   = "nicheTarget";   // % of feed wanted
+    public static final String GAP_MIN  = "gapMinMinutes";
+    public static final String GAP_MAX  = "gapMaxMinutes";
 
     // -- rates, per 100 matched videos ------------------------------------
     public static final String R_LIKE    = "rateLike";
@@ -56,6 +58,8 @@ public final class Prefs {
     public boolean custom()        { return sp.getBoolean(CUSTOM, false); }
     public boolean autoMode()      { return sp.getBoolean(AUTO, true); }
     public int     nicheTarget()   { return sp.getInt(TARGET, 70); }
+    public int     gapMin()        { return sp.getInt(GAP_MIN, 8); }
+    public int     gapMax()        { return sp.getInt(GAP_MAX, 42); }
     public boolean nicheEnabled()  { return sp.getBoolean(NICHE_ENABLED, true); }
     public boolean overlay()       { return sp.getBoolean(OVERLAY, true); }
     public boolean research()      { return sp.getBoolean(RESEARCH, true); }

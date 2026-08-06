@@ -192,6 +192,40 @@ public final class ResearchLog {
         return String.valueOf(v);
     }
 
+    /**
+     * Hashtags that keep appearing on niche videos but aren't in your terms yet.
+     * Adding them widens what counts as a match, which is the direct lever on the
+     * niche percentage.
+     */
+    public List<String> suggestedTerms(Niche niche, int n) {
+        Map<String, List<Long>> byTag = new HashMap<String, List<Long>>();
+        for (String[] r : rows()) {
+            if (r.length >= 6 && !"1".equals(r[5])) continue;
+            for (String tag : extractTags(r[2])) {
+                String word = tag.substring(1);
+                if (word.length() < 4) continue;
+                if (niche.covers(word)) continue;          // already matched
+                List<Long> l = byTag.get(word);
+                if (l == null) { l = new ArrayList<Long>(); byTag.put(word, l); }
+                l.add(likesOf(r));
+            }
+        }
+        List<Map.Entry<String, List<Long>>> es =
+                new ArrayList<Map.Entry<String, List<Long>>>(byTag.entrySet());
+        Collections.sort(es, new Comparator<Map.Entry<String, List<Long>>>() {
+            @Override public int compare(Map.Entry<String, List<Long>> a,
+                                         Map.Entry<String, List<Long>> b) {
+                return b.getValue().size() - a.getValue().size();
+            }
+        });
+        List<String> out = new ArrayList<String>();
+        for (int i = 0; i < es.size() && i < n; i++) {
+            if (es.get(i).getValue().size() < 2) continue;   // needs to recur
+            out.add(es.get(i).getKey());
+        }
+        return out;
+    }
+
     private static List<String> extractTags(String caption) {
         List<String> out = new ArrayList<String>();
         int i = 0;

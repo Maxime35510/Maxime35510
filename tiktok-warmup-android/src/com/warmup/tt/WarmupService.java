@@ -62,6 +62,7 @@ public class WarmupService extends AccessibilityService implements OverlayContro
     private final boolean[] recent = new boolean[40];
     private int recentIdx = 0, recentN = 0;
     private long pauseStart = 0;
+    private int plannedMinutes = 0;
 
     private int screenW = 1080, screenH = 2400;
 
@@ -135,6 +136,7 @@ public class WarmupService extends AccessibilityService implements OverlayContro
         behavior = new Behavior(prefs.rates());
 
         ActionLog.reset();
+        ActionStats.reset();
         running = true;
         paused = userPaused = false;
         videoCount = matchedCount = 0;
@@ -154,6 +156,7 @@ public class WarmupService extends AccessibilityService implements OverlayContro
         startTime = System.currentTimeMillis() + delay;
         endTime = startTime + length;
 
+        plannedMinutes = (int) (length / 60000);
         ActionLog.add("session", "start ~" + (length / 60000) + "m, niche: "
                 + (niche.isEmpty() ? "none set" : niche.size() + " keywords"), false);
 
@@ -193,7 +196,7 @@ public class WarmupService extends AccessibilityService implements OverlayContro
         // Auto mode: come back after a natural gap rather than running non-stop.
         if (was && prefs != null && prefs.autoMode()
                 && "session complete".equals(reason)) {
-            long gap = behavior.gapMs();
+            long gap = behavior.gapMs(prefs.gapMin(), prefs.gapMax());
             ActionLog.add("auto", "next session in " + (gap / 60000) + "m", false);
             handler.postDelayed(new Runnable() {
                 @Override public void run() {
@@ -246,6 +249,7 @@ public class WarmupService extends AccessibilityService implements OverlayContro
     public String  lastAction()     { return lastAction; }
     public String  detectedScreen() { return detected; }
     public String  lastText()       { return lastText; }
+    public int     plannedMinutes() { return plannedMinutes; }
     public int     unreadableRun()  { return unreadable; }
 
     /** Frozen while paused, so the countdown stays honest. */
@@ -266,6 +270,13 @@ public class WarmupService extends AccessibilityService implements OverlayContro
         recentIdx = (recentIdx + 1) % recent.length;
         if (recentN < recent.length) recentN++;
     }
+
+    public static final int MIN_SAMPLE = 10;
+
+    /** True once enough For You videos have been scored for the figure to mean anything. */
+    public boolean scoreReady() { return recentN >= MIN_SAMPLE; }
+
+    public int scoreSample() { return recentN; }
 
     /** Share of the last 40 *For You* videos that matched - search results excluded. */
     public int rollingPercent() {
@@ -583,7 +594,13 @@ public class WarmupService extends AccessibilityService implements OverlayContro
     private void openComments(final int watched) {
         ScreenState st = ScreenState.capture(this, screenW, screenH);
         ScreenState.Item target = st.comment();
-        if (target == null) { afterEngage(watched); return; }
+        if (target == null) {
+            ActionStats.notFound("comments");
+            ActionLog.add("comments", "button not found", true);
+            afterEngage(watched);
+            return;
+        }
+        ActionStats.done("comments");
 
         final int count = st.commentCount();
         ActionLog.add("comments", count > 0 ? count + " comments" : "", false);
@@ -613,7 +630,8 @@ public class WarmupService extends AccessibilityService implements OverlayContro
             if (it.bounds.width() > st.width * 0.20) continue;
             if (best == null || it.cy() < best.cy()) best = it;
         }
-        if (best == null) return;
+        if (best == null) { ActionStats.notFound("likeComment"); return; }
+        ActionStats.done("likeComment");
         ActionLog.add("likeComment", "", false);
         tapItem(best);
     }
@@ -638,7 +656,13 @@ public class WarmupService extends AccessibilityService implements OverlayContro
     private void openProfile(final int watched, final Behavior.Match m) {
         ScreenState st = ScreenState.capture(this, screenW, screenH);
         ScreenState.Item target = st.avatar();
-        if (target == null) { afterEngage(watched); return; }
+        if (target == null) {
+            ActionStats.notFound("profile");
+            ActionLog.add("profile", "avatar not found", true);
+            afterEngage(watched);
+            return;
+        }
+        ActionStats.done("profile");
 
         ActionLog.add("profile", "", false);
         tapItem(target);
@@ -653,9 +677,13 @@ public class WarmupService extends AccessibilityService implements OverlayContro
                             WarmupService.this, screenW, screenH);
                     ScreenState.Item f = findFollow(now);
                     if (f != null) {
+                        ActionStats.done("follow");
                         ActionLog.add("follow", "niche creator", false);
                         follows++;
                         tapItem(f);
+                    } else {
+                        ActionStats.notFound("follow");
+                        ActionLog.add("follow", "button not found", true);
                     }
                 }
                 later(behavior.profileDwellMs(), new Runnable() {
@@ -665,11 +693,21 @@ public class WarmupService extends AccessibilityService implements OverlayContro
         });
     }
 
+    /**
+     * The Follow button. Exact equality was too brittle - the label varies - but a
+     * plain "contains" would match "Following" and "Followers", i.e. the state that
+     * means we already follow them, or a counter.
+     */
     private ScreenState.Item findFollow(ScreenState st) {
         for (ScreenState.Item it : st.items) {
             if (!it.clickable) continue;
             String s = it.text.length() > 0 ? it.text : it.desc;
-            if (s.equals("follow") || s.equals("suivre") || s.equals("seguir")) return it;
+            if (s.length() == 0 || s.length() > 20) continue;
+            if (s.contains("following") || s.contains("followers")
+                    || s.contains("abonnés") || s.contains("abonnements")) continue;
+            if (s.contains("follow") || s.contains("suivre") || s.contains("seguir")) {
+                return it;
+            }
         }
         return null;
     }
@@ -679,7 +717,12 @@ public class WarmupService extends AccessibilityService implements OverlayContro
     private void repost(final int watched) {
         ScreenState st = ScreenState.capture(this, screenW, screenH);
         ScreenState.Item share = st.share();
-        if (share == null) { afterEngage(watched); return; }
+        if (share == null) {
+            ActionStats.notFound("repost");
+            ActionLog.add("repost", "share button not found", true);
+            afterEngage(watched);
+            return;
+        }
         ActionLog.add("repost", "opening share", false);
         tapItem(share);
 
@@ -691,7 +734,14 @@ public class WarmupService extends AccessibilityService implements OverlayContro
                 for (ScreenState.Item it : now.items) {
                     if (it.text.contains("repost") || it.desc.contains("repost")) { rp = it; break; }
                 }
-                if (rp != null) { reposts++; tapItem(rp); }
+                if (rp != null) {
+                    ActionStats.done("repost");
+                    reposts++;
+                    tapItem(rp);
+                } else {
+                    ActionStats.notFound("repost");
+                    ActionLog.add("repost", "no repost option in the sheet", true);
+                }
                 later(behavior.between(800, 1400), new Runnable() {
                     @Override public void run() { closeSheet(watched, 0); }
                 });
@@ -708,10 +758,12 @@ public class WarmupService extends AccessibilityService implements OverlayContro
 
         ScreenState.Item searchBtn = st.search();
         if (searchBtn == null) {
+            ActionStats.notFound("search");
             ActionLog.add("search", "search button not found", true);
             loop();
             return;
         }
+        ActionStats.done("search");
 
         ActionLog.add("search", term, false);
         tick("searching niche");
@@ -865,12 +917,14 @@ public class WarmupService extends AccessibilityService implements OverlayContro
                         WarmupService.this, screenW, screenH);
                 List<Long> counts = now.tileCounts();
                 if (!counts.isEmpty()) {
+                    ActionStats.done("ownStats");
                     selfStats.record(counts);
                     long total = 0;
                     for (Long c : counts) total += c;
                     ActionLog.add("stats", counts.size() + " videos, "
                             + ResearchLog.human(total) + " views", false);
                 } else {
+                    ActionStats.notFound("ownStats");
                     ActionLog.add("stats", "no counts readable", true);
                 }
                 later(behavior.between(1200, 2400), new Runnable() {
@@ -884,8 +938,12 @@ public class WarmupService extends AccessibilityService implements OverlayContro
 
     private void tapNamed(String name, ScreenState.Item item, Runnable done) {
         if (item != null) {
+            ActionStats.done(name);
             ActionLog.add(name, "", false);
             tapItem(item);
+        } else {
+            ActionStats.notFound(name);
+            ActionLog.add(name, "button not found", true);
         }
         later(behavior.between(500, 1100), done);
     }
@@ -893,6 +951,7 @@ public class WarmupService extends AccessibilityService implements OverlayContro
     private void likeByDoubleTap(Runnable done) {
         // Centre double-tap rather than the heart: double-tap only ever likes, while
         // the heart toggles and would un-like an already-liked video.
+        ActionStats.done("like");
         ActionLog.add("like", "", false);
         float x = screenW * 0.5f + jitter(screenW * 0.10f);
         float y = screenH * 0.45f + jitter(screenH * 0.08f);
