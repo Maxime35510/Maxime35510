@@ -154,14 +154,17 @@ final class LocalVideoStorageService implements VideoStorageService {
     String? preferredFileName,
   ) {
     final extension = _extensionOf(sourcePath);
-    final rawBase = preferredFileName == null || preferredFileName.trim().isEmpty
+    final rawBase =
+        preferredFileName == null || preferredFileName.trim().isEmpty
         ? _baseNameOf(sourcePath)
         : preferredFileName;
 
     final base = _sanitise(rawBase);
     var candidate = '$base$extension';
     var counter = 1;
-    while (File('${directory.path}${Platform.pathSeparator}$candidate').existsSync()) {
+    while (File(
+      '${directory.path}${Platform.pathSeparator}$candidate',
+    ).existsSync()) {
       candidate = '$base ($counter)$extension';
       counter++;
     }
@@ -216,7 +219,10 @@ final class LocalVideoStorageService implements VideoStorageService {
   static Future<int> _directorySize(Directory directory) async {
     if (!await directory.exists()) return 0;
     var total = 0;
-    await for (final entity in directory.list(recursive: true, followLinks: false)) {
+    await for (final entity in directory.list(
+      recursive: true,
+      followLinks: false,
+    )) {
       if (entity is File) {
         try {
           total += await entity.length();
@@ -234,7 +240,9 @@ final class LocalVideoStorageService implements VideoStorageService {
       StreamTransformer<List<int>, List<int>>.fromHandlers(
         handleData: (data, sink) {
           for (var offset = 0; offset < data.length; offset += size) {
-            final end = (offset + size < data.length) ? offset + size : data.length;
+            final end = (offset + size < data.length)
+                ? offset + size
+                : data.length;
             sink.add(data.sublist(offset, end));
           }
         },

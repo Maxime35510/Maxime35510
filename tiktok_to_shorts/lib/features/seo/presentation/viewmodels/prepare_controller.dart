@@ -6,6 +6,7 @@ import '../../../../core/di/providers.dart';
 import '../../../history/domain/entities/history_entry.dart';
 import '../../../history/presentation/viewmodels/history_providers.dart';
 import '../../../settings/presentation/viewmodels/settings_controller.dart';
+import '../../domain/entities/seo_variant.dart';
 import '../../domain/entities/youtube_seo.dart';
 import '../../domain/services/seo_generator.dart';
 
@@ -14,7 +15,8 @@ import '../../domain/services/seo_generator.dart';
 /// Edits are applied to in-memory state immediately and flushed to disk after
 /// a short quiet period, so typing never blocks on I/O and leaving the screen
 /// mid-sentence still keeps the work.
-final class PrepareController extends AutoDisposeFamilyNotifier<YoutubeSeo, String> {
+final class PrepareController
+    extends AutoDisposeFamilyNotifier<YoutubeSeo, String> {
   /// How long to wait after the last keystroke before writing to Hive.
   static const Duration _writeDebounce = Duration(milliseconds: 600);
 
@@ -30,7 +32,8 @@ final class PrepareController extends AutoDisposeFamilyNotifier<YoutubeSeo, Stri
 
   void setTitle(String value) => _mutate(state.copyWith(title: value));
 
-  void setDescription(String value) => _mutate(state.copyWith(description: value));
+  void setDescription(String value) =>
+      _mutate(state.copyWith(description: value));
 
   /// Replaces the hashtag list from free text such as `#one #two three`.
   void setHashtagsFromText(String value) {
@@ -54,13 +57,20 @@ final class PrepareController extends AutoDisposeFamilyNotifier<YoutubeSeo, Stri
   /// Returns the regenerated value so the screen can push it into its text
   /// controllers, which own the cursor position and cannot be driven by state
   /// alone without fighting the user's caret.
-  YoutubeSeo regenerate({required String fallbackTitle}) {
+  YoutubeSeo regenerate({
+    required String fallbackTitle,
+    SeoVariant variant = SeoVariant.searchFocused,
+  }) {
     final entry = ref.read(historyEntryProvider(arg));
     final options = ref
         .read(settingsControllerProvider)
         .toSeoOptions(fallbackTitle: fallbackTitle);
 
-    final regenerated = SeoGenerator.generate(entry?.caption, options: options);
+    final regenerated = SeoGenerator.generate(
+      entry?.caption,
+      options: options,
+      variant: variant,
+    );
     _mutate(regenerated);
     return regenerated;
   }
@@ -106,7 +116,5 @@ final class PrepareController extends AutoDisposeFamilyNotifier<YoutubeSeo, Stri
   }
 }
 
-final prepareControllerProvider =
-    NotifierProvider.autoDispose.family<PrepareController, YoutubeSeo, String>(
-      PrepareController.new,
-    );
+final prepareControllerProvider = NotifierProvider.autoDispose
+    .family<PrepareController, YoutubeSeo, String>(PrepareController.new);

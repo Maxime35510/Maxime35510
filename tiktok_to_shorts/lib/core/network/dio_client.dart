@@ -18,7 +18,8 @@ abstract final class DioClient {
         },
         responseType: ResponseType.json,
         // Non-2xx is handled by our own mapper, so let Dio raise for them.
-        validateStatus: (status) => status != null && status >= 200 && status < 300,
+        validateStatus: (status) =>
+            status != null && status >= 200 && status < 300,
       ),
     );
 
@@ -62,8 +63,7 @@ final class _RetryInterceptor extends Interceptor {
       NetworkConstants.retryBaseDelay * (1 << attempt),
     );
 
-    final options = err.requestOptions
-      ..extra[_attemptKey] = attempt + 1;
+    final options = err.requestOptions..extra[_attemptKey] = attempt + 1;
 
     try {
       final response = await _dio.fetch<dynamic>(options);
@@ -84,8 +84,7 @@ final class _RetryInterceptor extends Interceptor {
       DioExceptionType.sendTimeout ||
       DioExceptionType.connectionError => true,
       DioExceptionType.unknown => err.error is SocketException,
-      DioExceptionType.badResponse =>
-        (err.response?.statusCode ?? 0) >= 500,
+      DioExceptionType.badResponse => (err.response?.statusCode ?? 0) >= 500,
       _ => false,
     };
   }

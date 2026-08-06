@@ -41,41 +41,43 @@ abstract final class AppColors {
   /// The gradient used behind the home screen's headline.
   static const List<Color> brandGradient = [tiktokPink, accent];
 
-  static ColorScheme lightScheme() => ColorScheme.fromSeed(
-    seedColor: accent,
-    brightness: Brightness.light,
-  ).copyWith(
-    primary: accent,
-    onPrimary: Colors.white,
-    surface: lightSurface,
-    onSurface: lightTextPrimary,
-    onSurfaceVariant: lightTextSecondary,
-    surfaceContainerLowest: lightSurface,
-    surfaceContainerLow: lightBackground,
-    surfaceContainer: lightSurfaceMuted,
-    surfaceContainerHigh: lightSurfaceMuted,
-    outline: lightBorder,
-    outlineVariant: lightBorder,
-    error: danger,
-  );
+  static ColorScheme lightScheme() =>
+      ColorScheme.fromSeed(
+        seedColor: accent,
+        brightness: Brightness.light,
+      ).copyWith(
+        primary: accent,
+        onPrimary: Colors.white,
+        surface: lightSurface,
+        onSurface: lightTextPrimary,
+        onSurfaceVariant: lightTextSecondary,
+        surfaceContainerLowest: lightSurface,
+        surfaceContainerLow: lightBackground,
+        surfaceContainer: lightSurfaceMuted,
+        surfaceContainerHigh: lightSurfaceMuted,
+        outline: lightBorder,
+        outlineVariant: lightBorder,
+        error: danger,
+      );
 
-  static ColorScheme darkScheme() => ColorScheme.fromSeed(
-    seedColor: accent,
-    brightness: Brightness.dark,
-  ).copyWith(
-    primary: accentDark,
-    onPrimary: const Color(0xFF10101A),
-    surface: darkSurface,
-    onSurface: darkTextPrimary,
-    onSurfaceVariant: darkTextSecondary,
-    surfaceContainerLowest: darkBackground,
-    surfaceContainerLow: darkSurface,
-    surfaceContainer: darkSurfaceMuted,
-    surfaceContainerHigh: darkSurfaceMuted,
-    outline: darkBorder,
-    outlineVariant: darkBorder,
-    error: dangerDark,
-  );
+  static ColorScheme darkScheme() =>
+      ColorScheme.fromSeed(
+        seedColor: accent,
+        brightness: Brightness.dark,
+      ).copyWith(
+        primary: accentDark,
+        onPrimary: const Color(0xFF10101A),
+        surface: darkSurface,
+        onSurface: darkTextPrimary,
+        onSurfaceVariant: darkTextSecondary,
+        surfaceContainerLowest: darkBackground,
+        surfaceContainerLow: darkSurface,
+        surfaceContainer: darkSurfaceMuted,
+        surfaceContainerHigh: darkSurfaceMuted,
+        outline: darkBorder,
+        outlineVariant: darkBorder,
+        error: dangerDark,
+      );
 }
 
 /// Theme-aware colours that Material's [ColorScheme] has no slot for.

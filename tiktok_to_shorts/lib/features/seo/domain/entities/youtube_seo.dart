@@ -12,10 +12,7 @@ final class YoutubeSeo {
     required this.hashtags,
   });
 
-  const YoutubeSeo.empty()
-    : title = '',
-      description = '',
-      hashtags = const [];
+  const YoutubeSeo.empty() : title = '', description = '', hashtags = const [];
 
   /// Video title, already trimmed to [SeoConstants.maxTitleLength].
   final String title;

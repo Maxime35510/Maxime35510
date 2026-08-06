@@ -31,7 +31,8 @@ abstract final class TextUtils {
     if (_hasSignificantCase(word)) return word;
 
     final lower = word.toLowerCase();
-    if (!isEdge && TitleCaseSmallWords.values.contains(_stripPunctuation(lower))) {
+    if (!isEdge &&
+        TitleCaseSmallWords.values.contains(_stripPunctuation(lower))) {
       return lower;
     }
     return capitalize(lower);
@@ -81,7 +82,10 @@ abstract final class TextUtils {
   /// Every word is lower-cased except acronyms and the words listed in
   /// [properNouns], so `Miniature Ferrari Assembly` becomes
   /// `miniature Ferrari assembly`.
-  static String toSentenceCase(String text, {Set<String> properNouns = const {}}) {
+  static String toSentenceCase(
+    String text, {
+    Set<String> properNouns = const {},
+  }) {
     final tokens = words(text);
     if (tokens.isEmpty) return '';
     return tokens

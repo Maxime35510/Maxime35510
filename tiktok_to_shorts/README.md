@@ -28,6 +28,14 @@ video files come from **your own device** — the ones TikTok lets you save from
 your own profile. That is the entire network surface: one `GET` to
 `https://www.tiktok.com/oembed`.
 
+It does **not** download watermark-free videos: when only metadata is available
+it asks you to attach your own clean original file. There is no account and no
+login — the app never asks for, and never stores, social-media passwords,
+cookies or session tokens. An in-app **Privacy** screen (Settings → Privacy)
+states this plainly, and an **About** screen credits the author with their
+public links. File access uses the Android **Storage Access Framework** via
+`file_selector`; no unnecessary permissions are requested.
+
 ---
 
 ## The SEO engine
@@ -80,6 +88,20 @@ Every detail is handcrafted.
 Everything it produces is a starting point; the user can edit every field, and
 **Regenerate** restores the generated version.
 
+### Three tones (variants)
+
+The same caption can be rendered in three fixed, deterministic tones, chosen on
+the Prepare screen and re-generated instantly:
+
+| Variant | Title | Description |
+|---|---|---|
+| **Search** (default) | `Miniature Ferrari Assembly \| Satisfying Build` — keyword-first | Two lines: opener + category detail |
+| **Catchy** | `Satisfying Build: Miniature Ferrari Assembly` — hook leads | A punchier one-line opener + detail |
+| **Minimal** | `Miniature Ferrari Assembly` — bare subject | One short line, nothing appended |
+
+`Search` is the historical default and its output is unchanged. All three share
+the same curated hashtags and respect YouTube's 100-character title limit.
+
 Tuning lives in one file — `lib/features/seo/domain/services/seo_vocabulary.dart` —
 separate from the algorithm, so the word lists can change without touching logic.
 
@@ -108,11 +130,12 @@ lib/
 │   ├── utils/                  #   Text, dates, ids
 │   └── widgets/                #   The shared component library
 ├── features/
+│   ├── about/                  # About screen (author + links)
 │   ├── history/                # Local store of imported videos
 │   ├── home/                   # Landing screen
 │   ├── import/                 # Link + file import, TikTok oEmbed
 │   ├── seo/                    # The metadata engine and its editor
-│   └── settings/               # Preferences
+│   └── settings/               # Preferences + privacy screen
 └── l10n/                       # ARB files (en, fr) + generated delegates
 ```
 
@@ -179,7 +202,7 @@ flutter gen-l10n
 
 ```bash
 flutter analyze     # must report "No issues found!"
-flutter test        # 75 tests
+flutter test        # 81 tests
 ```
 
 ---
@@ -246,6 +269,28 @@ flutter build appbundle --release
 
 ```bash
 adb install -r build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
+```
+
+### Release artifacts (`dist/`)
+
+Prebuilt, checksummed release APKs live in `dist/`:
+
+```
+dist/
+├── ShortSmith-universal-release.apk   # ~60 MB, all ABIs — install anywhere
+├── apks/
+│   ├── app-arm64-v8a-release.apk      # ~22 MB — modern phones
+│   ├── app-armeabi-v7a-release.apk    # ~20 MB — older 32-bit phones
+│   └── app-x86_64-release.apk         # ~23 MB — emulators
+└── SHA256SUMS.txt                     # verify with: sha256sum -c SHA256SUMS.txt
+```
+
+These are signed with the debug key (no setup required) and are meant for
+sideloading and testing, not Play Store upload — use an App Bundle and a real
+upload key for that. Verify integrity from inside `dist/`:
+
+```bash
+cd dist && sha256sum -c SHA256SUMS.txt
 ```
 
 ---

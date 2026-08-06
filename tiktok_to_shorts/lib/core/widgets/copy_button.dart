@@ -118,7 +118,9 @@ class _CopyButtonState extends ConsumerState<CopyButton> {
         ? FilledButton.icon(onPressed: _copy, icon: icon, label: label)
         : OutlinedButton.icon(onPressed: _copy, icon: icon, label: label);
 
-    return widget.expand ? SizedBox(width: double.infinity, child: button) : button;
+    return widget.expand
+        ? SizedBox(width: double.infinity, child: button)
+        : button;
   }
 }
 
@@ -169,7 +171,12 @@ class CopyIconButton extends ConsumerWidget {
 
 /// A label row with a trailing affordance, used above content blocks.
 class SectionHeader extends StatelessWidget {
-  const SectionHeader({required this.title, this.trailing, this.subtitle, super.key});
+  const SectionHeader({
+    required this.title,
+    this.trailing,
+    this.subtitle,
+    super.key,
+  });
 
   final String title;
   final String? subtitle;

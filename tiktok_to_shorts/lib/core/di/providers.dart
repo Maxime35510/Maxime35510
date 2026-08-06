@@ -34,7 +34,8 @@ import '../services/video_storage_service.dart';
 // ---------------------------------------------------------------------------
 
 final sharedPreferencesProvider = Provider<SharedPreferences>(
-  (ref) => throw UnimplementedError('sharedPreferencesProvider must be overridden'),
+  (ref) =>
+      throw UnimplementedError('sharedPreferencesProvider must be overridden'),
 );
 
 final historyBoxProvider = Provider<Box<String>>(

@@ -13,7 +13,10 @@ abstract final class TikTokUrlParser {
     'vt.tiktok.com',
   };
 
-  static final RegExp _urlInText = RegExp(r'https?://[^\s<>"]+', caseSensitive: false);
+  static final RegExp _urlInText = RegExp(
+    r'https?://[^\s<>"]+',
+    caseSensitive: false,
+  );
 
   /// `/@handle/video/1234567890` and `/v/1234567890.html`.
   static final RegExp _videoIdPattern = RegExp(r'/(?:video|v)/(\d+)');

@@ -27,8 +27,10 @@ final class SeoOptions {
   final String fallbackTitle;
 
   /// Effective hashtag budget, clamped to what YouTube tolerates.
-  int get effectiveMaxHashtags =>
-      maxHashtags.clamp(SeoConstants.minHashtagCount, SeoConstants.maxHashtagCount);
+  int get effectiveMaxHashtags => maxHashtags.clamp(
+    SeoConstants.minHashtagCount,
+    SeoConstants.maxHashtagCount,
+  );
 
   SeoOptions copyWith({
     int? maxHashtags,
@@ -49,5 +51,6 @@ final class SeoOptions {
           other.fallbackTitle == fallbackTitle;
 
   @override
-  int get hashCode => Object.hash(maxHashtags, appendShortsHashtag, fallbackTitle);
+  int get hashCode =>
+      Object.hash(maxHashtags, appendShortsHashtag, fallbackTitle);
 }

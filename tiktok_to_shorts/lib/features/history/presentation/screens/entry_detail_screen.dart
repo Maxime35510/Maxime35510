@@ -52,7 +52,12 @@ class EntryDetailScreen extends ConsumerWidget {
               maxWidth: Breakpoints.maxContentWidth,
             ),
             child: ListView(
-              padding: const EdgeInsets.fromLTRB(Gap.md, Gap.md, Gap.md, Gap.xxl),
+              padding: const EdgeInsets.fromLTRB(
+                Gap.md,
+                Gap.md,
+                Gap.md,
+                Gap.xxl,
+              ),
               children: [
                 AnimatedEntrance(
                   child: AppCard(
@@ -86,7 +91,10 @@ class EntryDetailScreen extends ConsumerWidget {
                               ),
                               if (entry.authorName case final author?) ...[
                                 Gap.h4,
-                                Text(author, style: context.textStyles.bodySmall),
+                                Text(
+                                  author,
+                                  style: context.textStyles.bodySmall,
+                                ),
                               ],
                             ],
                           ),
@@ -183,7 +191,8 @@ class EntryDetailScreen extends ConsumerWidget {
                       if (entry.sourceUrl.isNotEmpty) ...[
                         Gap.h12,
                         OutlinedButton.icon(
-                          onPressed: () => _openSource(context, entry.sourceUrl),
+                          onPressed: () =>
+                              _openSource(context, entry.sourceUrl),
                           icon: const Icon(Icons.open_in_new_rounded, size: 18),
                           label: Text(l10n.detailSourceLink),
                         ),

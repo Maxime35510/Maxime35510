@@ -12,13 +12,21 @@ void main() {
     });
 
     test('accepts short share links', () {
-      expect(TikTokUrlParser.isValid('https://vm.tiktok.com/ZMabcdef/'), isTrue);
-      expect(TikTokUrlParser.isValid('https://vt.tiktok.com/ZSabcdef/'), isTrue);
+      expect(
+        TikTokUrlParser.isValid('https://vm.tiktok.com/ZMabcdef/'),
+        isTrue,
+      );
+      expect(
+        TikTokUrlParser.isValid('https://vt.tiktok.com/ZSabcdef/'),
+        isTrue,
+      );
     });
 
     test('accepts the legacy /v/ form', () {
       expect(
-        TikTokUrlParser.isValid('https://m.tiktok.com/v/7123456789012345678.html'),
+        TikTokUrlParser.isValid(
+          'https://m.tiktok.com/v/7123456789012345678.html',
+        ),
         isTrue,
       );
     });
@@ -54,7 +62,10 @@ void main() {
     });
 
     test('rejects non-TikTok hosts', () {
-      expect(TikTokUrlParser.isValid('https://youtube.com/shorts/abc'), isFalse);
+      expect(
+        TikTokUrlParser.isValid('https://youtube.com/shorts/abc'),
+        isFalse,
+      );
       expect(
         TikTokUrlParser.isValid('https://tiktok.evil.com/@me/video/1'),
         isFalse,
@@ -62,7 +73,10 @@ void main() {
     });
 
     test('rejects a bare profile link with no video', () {
-      expect(TikTokUrlParser.isValid('https://www.tiktok.com/@creator'), isFalse);
+      expect(
+        TikTokUrlParser.isValid('https://www.tiktok.com/@creator'),
+        isFalse,
+      );
     });
 
     test('rejects empty and junk input', () {

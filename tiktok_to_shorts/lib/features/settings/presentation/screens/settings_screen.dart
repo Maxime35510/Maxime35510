@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/router/app_router.dart';
+import '../../../../app/router/app_routes.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_dimens.dart';
 import '../../../../core/constants/app_constants.dart';
@@ -36,7 +37,12 @@ class SettingsScreen extends ConsumerWidget {
               maxWidth: Breakpoints.maxContentWidth,
             ),
             child: ListView(
-              padding: const EdgeInsets.fromLTRB(Gap.md, Gap.md, Gap.md, Gap.xxl),
+              padding: const EdgeInsets.fromLTRB(
+                Gap.md,
+                Gap.md,
+                Gap.md,
+                Gap.xxl,
+              ),
               children: [
                 AnimatedEntrance(
                   child: _Section(
@@ -249,7 +255,9 @@ class _StorageSettingsState extends ConsumerState<_StorageSettings> {
 
     await result.fold(
       (path) async {
-        await ref.read(settingsControllerProvider.notifier).setStorageDirectory(path);
+        await ref
+            .read(settingsControllerProvider.notifier)
+            .setStorageDirectory(path);
         await _refresh();
       },
       (failure) async {
@@ -268,16 +276,13 @@ class _StorageSettingsState extends ConsumerState<_StorageSettings> {
     final result = await ref.read(videoStorageServiceProvider).clearCache();
     if (!mounted) return;
 
-    result.fold(
-      (freed) {
-        AppFeedback.showSuccess(
-          context,
-          l10n.settingsCacheCleared(TextUtils.formatBytes(freed)),
-        );
-        _refresh();
-      },
-      (failure) => AppFeedback.showFailure(context, failure),
-    );
+    result.fold((freed) {
+      AppFeedback.showSuccess(
+        context,
+        l10n.settingsCacheCleared(TextUtils.formatBytes(freed)),
+      );
+      _refresh();
+    }, (failure) => AppFeedback.showFailure(context, failure));
   }
 
   @override
@@ -346,6 +351,19 @@ class _AboutSection extends ConsumerWidget {
           title: Text(l10n.settingsVersion),
           subtitle: Text(version),
           leading: const Icon(Icons.info_outline_rounded),
+        ),
+        ListTile(
+          title: Text(l10n.aboutTitle),
+          subtitle: const Text('Made by Maxime35'),
+          leading: const Icon(Icons.auto_awesome_outlined),
+          trailing: const Icon(Icons.chevron_right_rounded, size: 20),
+          onTap: () => AppRoutes.goToAbout(context),
+        ),
+        ListTile(
+          title: Text(l10n.privacyTitle),
+          leading: const Icon(Icons.privacy_tip_outlined),
+          trailing: const Icon(Icons.chevron_right_rounded, size: 20),
+          onTap: () => AppRoutes.goToPrivacy(context),
         ),
         ListTile(
           title: Text(l10n.settingsLicenses),

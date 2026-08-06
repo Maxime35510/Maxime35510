@@ -6,7 +6,10 @@ final class ParsedCaption {
     required this.mentions,
   });
 
-  const ParsedCaption.empty() : body = '', hashtags = const [], mentions = const [];
+  const ParsedCaption.empty()
+    : body = '',
+      hashtags = const [],
+      mentions = const [];
 
   /// The caption with hashtags, @mentions, URLs and emoji removed.
   final String body;

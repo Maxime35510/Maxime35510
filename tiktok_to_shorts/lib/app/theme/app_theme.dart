@@ -134,8 +134,12 @@ abstract final class AppTheme {
           vertical: Gap.sm + 2,
         ),
         hintStyle: textTheme.bodyMedium?.copyWith(color: palette.textSecondary),
-        labelStyle: textTheme.bodyMedium?.copyWith(color: palette.textSecondary),
-        helperStyle: textTheme.bodySmall?.copyWith(color: palette.textSecondary),
+        labelStyle: textTheme.bodyMedium?.copyWith(
+          color: palette.textSecondary,
+        ),
+        helperStyle: textTheme.bodySmall?.copyWith(
+          color: palette.textSecondary,
+        ),
         helperMaxLines: 3,
         errorMaxLines: 3,
         border: OutlineInputBorder(
@@ -164,15 +168,22 @@ abstract final class AppTheme {
         backgroundColor: palette.cardMuted,
         side: BorderSide(color: palette.border),
         labelStyle: textTheme.labelMedium?.copyWith(color: palette.textPrimary),
-        padding: const EdgeInsets.symmetric(horizontal: Gap.xs, vertical: Gap.xxs),
+        padding: const EdgeInsets.symmetric(
+          horizontal: Gap.xs,
+          vertical: Gap.xxs,
+        ),
         shape: const RoundedRectangleBorder(borderRadius: Radii.pillAll),
       ),
 
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
-        backgroundColor: isDark ? AppColors.darkSurfaceMuted : const Color(0xFF22222B),
+        backgroundColor: isDark
+            ? AppColors.darkSurfaceMuted
+            : const Color(0xFF22222B),
         contentTextStyle: textTheme.bodyMedium?.copyWith(color: Colors.white),
-        actionTextColor: isDark ? AppColors.accentDark : const Color(0xFFB9BFFF),
+        actionTextColor: isDark
+            ? AppColors.accentDark
+            : const Color(0xFFB9BFFF),
         shape: const RoundedRectangleBorder(borderRadius: Radii.mdAll),
         insetPadding: const EdgeInsets.all(Gap.md),
         elevation: 0,

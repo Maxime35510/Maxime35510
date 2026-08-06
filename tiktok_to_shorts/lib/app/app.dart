@@ -33,10 +33,9 @@ class ShortsmithApp extends ConsumerWidget {
         // Clamp text scaling: beyond ~1.3 the dense metadata cards start to
         // clip, and honouring the full system range would break the layout
         // rather than help the user.
-        final scale = MediaQuery.textScalerOf(context).clamp(
-          minScaleFactor: 0.9,
-          maxScaleFactor: 1.3,
-        );
+        final scale = MediaQuery.textScalerOf(
+          context,
+        ).clamp(minScaleFactor: 0.9, maxScaleFactor: 1.3);
         return MediaQuery(
           data: MediaQuery.of(context).copyWith(textScaler: scale),
           child: child ?? const SizedBox.shrink(),

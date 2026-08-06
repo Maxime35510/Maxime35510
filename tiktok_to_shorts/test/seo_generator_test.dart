@@ -41,34 +41,45 @@ void main() {
 
   group('HashtagCurator', () {
     test('drops TikTok reach-bait tags', () {
-      final curated = HashtagCurator.curate(
-        ['fyp', 'viral', 'foryoupage', 'capcut', 'cars'],
-        options: const SeoOptions(appendShortsHashtag: false),
-      );
+      final curated = HashtagCurator.curate([
+        'fyp',
+        'viral',
+        'foryoupage',
+        'capcut',
+        'cars',
+      ], options: const SeoOptions(appendShortsHashtag: false));
       expect(curated, ['cars']);
     });
 
     test('ranks later (more specific) tags first', () {
-      final curated = HashtagCurator.curate(
-        ['fyp', 'viral', 'cars', 'miniature', 'asmr'],
-        options: const SeoOptions(appendShortsHashtag: false),
-      );
+      final curated = HashtagCurator.curate([
+        'fyp',
+        'viral',
+        'cars',
+        'miniature',
+        'asmr',
+      ], options: const SeoOptions(appendShortsHashtag: false));
       expect(curated, ['asmr', 'miniature', 'cars']);
     });
 
     test('demotes broad tags behind specific ones', () {
-      final curated = HashtagCurator.curate(
-        ['woodworking', 'funny', 'love'],
-        options: const SeoOptions(appendShortsHashtag: false),
-      );
+      final curated = HashtagCurator.curate([
+        'woodworking',
+        'funny',
+        'love',
+      ], options: const SeoOptions(appendShortsHashtag: false));
       expect(curated.first, 'woodworking');
     });
 
     test('respects the hashtag budget and appends #shorts', () {
-      final curated = HashtagCurator.curate(
-        ['alpha', 'bravo', 'charlie', 'delta', 'echo', 'foxtrot'],
-        options: const SeoOptions(maxHashtags: 3),
-      );
+      final curated = HashtagCurator.curate([
+        'alpha',
+        'bravo',
+        'charlie',
+        'delta',
+        'echo',
+        'foxtrot',
+      ], options: const SeoOptions(maxHashtags: 3));
       expect(curated.length, 4);
       expect(curated.last, 'shorts');
     });
@@ -82,10 +93,11 @@ void main() {
     });
 
     test('drops numeric-only and very short tags', () {
-      final curated = HashtagCurator.curate(
-        ['2024', 'ab', 'joinery'],
-        options: const SeoOptions(appendShortsHashtag: false),
-      );
+      final curated = HashtagCurator.curate([
+        '2024',
+        'ab',
+        'joinery',
+      ], options: const SeoOptions(appendShortsHashtag: false));
       expect(curated, ['joinery']);
     });
   });

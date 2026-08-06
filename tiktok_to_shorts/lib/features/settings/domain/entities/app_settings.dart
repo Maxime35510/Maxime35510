@@ -55,6 +55,10 @@ final class AppSettings {
           other.appendShortsHashtag == appendShortsHashtag;
 
   @override
-  int get hashCode =>
-      Object.hash(themeMode, storageDirectory, maxHashtags, appendShortsHashtag);
+  int get hashCode => Object.hash(
+    themeMode,
+    storageDirectory,
+    maxHashtags,
+    appendShortsHashtag,
+  );
 }

@@ -15,6 +15,12 @@ abstract final class AppRoutes {
   static const String settingsPath = '/settings';
   static const String settingsName = 'settings';
 
+  static const String aboutPath = '/about';
+  static const String aboutName = 'about';
+
+  static const String privacyPath = '/privacy';
+  static const String privacyName = 'privacy';
+
   /// Detail screen for one history entry.
   static const String detailPath = '/entry/:id';
   static const String detailName = 'detail';
@@ -32,6 +38,11 @@ abstract final class AppRoutes {
 
   static void goToSettings(BuildContext context) =>
       context.pushNamed(settingsName);
+
+  static void goToAbout(BuildContext context) => context.pushNamed(aboutName);
+
+  static void goToPrivacy(BuildContext context) =>
+      context.pushNamed(privacyName);
 
   static void goToDetail(BuildContext context, String entryId) =>
       context.pushNamed(detailName, pathParameters: {entryIdParam: entryId});

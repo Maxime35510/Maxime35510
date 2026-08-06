@@ -52,7 +52,12 @@ class HomeScreen extends ConsumerWidget {
 
                 SliverToBoxAdapter(
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(Gap.md, 0, Gap.md, Gap.sm),
+                    padding: const EdgeInsets.fromLTRB(
+                      Gap.md,
+                      0,
+                      Gap.md,
+                      Gap.sm,
+                    ),
                     child: _HistorySectionHeader(
                       count: history.valueOrNull?.length ?? 0,
                     ),
@@ -207,7 +212,10 @@ class _HistorySectionHeader extends StatelessWidget {
     crossAxisAlignment: CrossAxisAlignment.baseline,
     textBaseline: TextBaseline.alphabetic,
     children: [
-      Text(context.l10n.historySectionTitle, style: context.textStyles.headlineSmall),
+      Text(
+        context.l10n.historySectionTitle,
+        style: context.textStyles.headlineSmall,
+      ),
       Gap.w8,
       Text(
         context.l10n.historyItemCount(count),

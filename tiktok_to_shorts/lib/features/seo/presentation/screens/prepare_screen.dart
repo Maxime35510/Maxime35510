@@ -12,6 +12,7 @@ import '../../../../core/widgets/app_feedback.dart';
 import '../../../../core/widgets/copy_button.dart';
 import '../../../../core/widgets/hashtag_wrap.dart';
 import '../../../history/presentation/viewmodels/history_providers.dart';
+import '../../domain/entities/seo_variant.dart';
 import '../viewmodels/prepare_controller.dart';
 
 /// "Prepare for YouTube" — the editable view of the generated metadata.
@@ -32,6 +33,10 @@ class _PrepareScreenState extends ConsumerState<PrepareScreen> {
   late final TextEditingController _titleController;
   late final TextEditingController _descriptionController;
   late final TextEditingController _hashtagsController;
+
+  /// The tone the next regeneration will use. Local UI state — the generated
+  /// text itself is the source of truth once produced.
+  SeoVariant _variant = SeoVariant.fallback;
 
   @override
   void initState() {
@@ -56,7 +61,10 @@ class _PrepareScreenState extends ConsumerState<PrepareScreen> {
 
   Future<void> _regenerate() async {
     final l10n = context.l10n;
-    final regenerated = _controller.regenerate(fallbackTitle: l10n.appName);
+    final regenerated = _controller.regenerate(
+      fallbackTitle: l10n.appName,
+      variant: _variant,
+    );
 
     _titleController.text = regenerated.title;
     _descriptionController.text = regenerated.description;
@@ -68,6 +76,20 @@ class _PrepareScreenState extends ConsumerState<PrepareScreen> {
       icon: Icons.auto_fix_high_rounded,
     );
   }
+
+  /// Switches the tone and regenerates immediately, so the change is visible
+  /// without a second tap.
+  void _selectVariant(SeoVariant variant) {
+    if (variant == _variant) return;
+    setState(() => _variant = variant);
+    _regenerate();
+  }
+
+  String _variantLabel(SeoVariant variant) => switch (variant) {
+    SeoVariant.searchFocused => context.l10n.prepareVariantSearch,
+    SeoVariant.catchy => context.l10n.prepareVariantCatchy,
+    SeoVariant.minimal => context.l10n.prepareVariantMinimal,
+  };
 
   /// Removing a tag from a chip has to be written back into the text field,
   /// which is the field's source of truth while the user is editing.
@@ -112,12 +134,51 @@ class _PrepareScreenState extends ConsumerState<PrepareScreen> {
                 maxWidth: Breakpoints.maxContentWidth,
               ),
               child: ListView(
-                padding: const EdgeInsets.fromLTRB(Gap.md, Gap.md, Gap.md, Gap.xxl),
+                padding: const EdgeInsets.fromLTRB(
+                  Gap.md,
+                  Gap.md,
+                  Gap.md,
+                  Gap.xxl,
+                ),
                 children: [
                   Text(
                     l10n.prepareIntro,
                     style: context.textStyles.bodyMedium?.copyWith(
                       color: palette.textSecondary,
+                    ),
+                  ),
+                  Gap.h16,
+
+                  // --- Variant / tone ------------------------------------
+                  AnimatedEntrance(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          l10n.prepareVariantLabel,
+                          style: context.textStyles.labelSmall?.copyWith(
+                            color: palette.textSecondary,
+                            letterSpacing: 0.8,
+                          ),
+                        ),
+                        Gap.h8,
+                        SizedBox(
+                          width: double.infinity,
+                          child: SegmentedButton<SeoVariant>(
+                            segments: [
+                              for (final variant in SeoVariant.values)
+                                ButtonSegment(
+                                  value: variant,
+                                  label: Text(_variantLabel(variant)),
+                                ),
+                            ],
+                            selected: {_variant},
+                            showSelectedIcon: false,
+                            onSelectionChanged: (selection) =>
+                                _selectVariant(selection.first),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                   Gap.h16,
@@ -135,7 +196,9 @@ class _PrepareScreenState extends ConsumerState<PrepareScreen> {
                         max: SeoConstants.maxTitleLength,
                       ),
                       errorText: seo.isTitleOverLimit
-                          ? l10n.prepareTitleTooLong(SeoConstants.maxTitleLength)
+                          ? l10n.prepareTitleTooLong(
+                              SeoConstants.maxTitleLength,
+                            )
                           : null,
                     ),
                   ),

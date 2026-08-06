@@ -157,6 +157,21 @@
   "settingsLicenses": "Open source licenses",
   "settingsAboutBody": "Shortsmith helps you reuse the videos you already published on TikTok. It never downloads other people's content: captions and thumbnails come from TikTok's public oEmbed endpoint, and video files come from your own device.",
 
+  "aboutTitle": "About",
+
+  "privacyTitle": "Privacy",
+  "privacyIntro": "Shortsmith is built to stay out of your way. Here is exactly what it does with your data.",
+  "privacyLocalOnly": "Everything stays on your device. Your history, settings and video files are stored locally and are never uploaded to any server.",
+  "privacyNoCredentials": "No sign-in, ever. Shortsmith never asks for — and never stores — social-media passwords, cookies or session tokens.",
+  "privacyPublicMetadata": "Only public details are read. Captions and thumbnails come from TikTok's public oEmbed endpoint; nothing private is accessed.",
+  "privacyOwnVideo": "You bring your own video. Shortsmith does not download watermark-free videos. To preview or save a clip, pick the original file you exported from your own TikTok profile.",
+  "privacyLeastPermissions": "Least privilege. The app uses the Android Storage Access Framework to open the files you choose, and requests no unnecessary permissions.",
+
+  "prepareVariantLabel": "Style",
+  "prepareVariantSearch": "Search",
+  "prepareVariantCatchy": "Catchy",
+  "prepareVariantMinimal": "Minimal",
+
   "errorTitle": "Something went wrong",
   "errorNoInternet": "You appear to be offline. Check your connection and try again.",
   "errorTimeout": "The request took too long. Please try again.",

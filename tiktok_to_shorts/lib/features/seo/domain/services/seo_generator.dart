@@ -2,6 +2,7 @@ import '../../../../core/constants/app_constants.dart';
 import '../../../../core/utils/text_utils.dart';
 import '../entities/parsed_caption.dart';
 import '../entities/seo_options.dart';
+import '../entities/seo_variant.dart';
 import '../entities/youtube_seo.dart';
 import 'caption_parser.dart';
 import 'hashtag_curator.dart';
@@ -27,25 +28,38 @@ abstract final class SeoGenerator {
   static const int _maxTitleWords = 12;
 
   static final RegExp _sentenceBreak = RegExp(r'[.!?\n]+');
-  static final RegExp _gerund = RegExp(r'^\p{L}+ing$', unicode: true, caseSensitive: false);
+  static final RegExp _gerund = RegExp(
+    r'^\p{L}+ing$',
+    unicode: true,
+    caseSensitive: false,
+  );
 
   /// Generates metadata from a raw TikTok [caption].
+  ///
+  /// [variant] selects the tone; the default keeps the historical
+  /// keyword-first output byte-for-byte.
   static YoutubeSeo generate(
     String? caption, {
     SeoOptions options = const SeoOptions(),
-  }) => generateFromParsed(CaptionParser.parse(caption), options: options);
+    SeoVariant variant = SeoVariant.searchFocused,
+  }) => generateFromParsed(
+    CaptionParser.parse(caption),
+    options: options,
+    variant: variant,
+  );
 
   /// Generates metadata from an already-parsed caption.
   static YoutubeSeo generateFromParsed(
     ParsedCaption parsed, {
     SeoOptions options = const SeoOptions(),
+    SeoVariant variant = SeoVariant.searchFocused,
   }) {
     final hashtags = HashtagCurator.curate(parsed.hashtags, options: options);
     final category = _resolveCategory(hashtags, parsed.body);
 
     final subject = _buildSubject(parsed, hashtags, options);
-    final title = _buildTitle(subject, category);
-    final description = _buildDescription(subject, category);
+    final title = _buildTitleFor(variant, subject, category);
+    final description = _buildDescriptionFor(variant, subject, category);
 
     return YoutubeSeo(
       title: title,
@@ -101,7 +115,10 @@ abstract final class SeoGenerator {
       if (display.isNotEmpty) {
         return _Subject(
           display: display,
-          sentence: TextUtils.toSentenceCase(rewritten, properNouns: properNouns),
+          sentence: TextUtils.toSentenceCase(
+            rewritten,
+            properNouns: properNouns,
+          ),
         );
       }
     }
@@ -163,10 +180,9 @@ abstract final class SeoGenerator {
     }
 
     // Only the first sentence becomes the title.
-    final firstSentence = text.split(_sentenceBreak).firstWhere(
-      (s) => s.trim().isNotEmpty,
-      orElse: () => '',
-    );
+    final firstSentence = text
+        .split(_sentenceBreak)
+        .firstWhere((s) => s.trim().isNotEmpty, orElse: () => '');
     text = TextUtils.normalizeWhitespace(firstSentence);
 
     final tokens = TextUtils.words(text);
@@ -174,7 +190,9 @@ abstract final class SeoGenerator {
       text = tokens.take(_maxTitleWords).join(' ');
     }
 
-    return text.replaceAll(RegExp(r'''^[\s"'“”‘’]+|[\s"'“”‘’,;:]+$'''), '').trim();
+    return text
+        .replaceAll(RegExp(r'''^[\s"'“”‘’]+|[\s"'“”‘’,;:]+$'''), '')
+        .trim();
   }
 
   /// Rewrites a gerund opener into a noun phrase.
@@ -205,6 +223,17 @@ abstract final class SeoGenerator {
   // Title
   // ---------------------------------------------------------------------
 
+  /// Routes to the title builder for [variant].
+  static String _buildTitleFor(
+    SeoVariant variant,
+    _Subject subject,
+    SeoCategory category,
+  ) => switch (variant) {
+    SeoVariant.searchFocused => _buildTitle(subject, category),
+    SeoVariant.catchy => _buildCatchyTitle(subject, category),
+    SeoVariant.minimal => _buildMinimalTitle(subject),
+  };
+
   /// `<subject> | <hook>`, shortened to fit YouTube's 100-character limit.
   ///
   /// If the pair does not fit, the hook is dropped before the subject is cut,
@@ -229,9 +258,44 @@ abstract final class SeoGenerator {
     return hookWords.every(subjectLower.contains);
   }
 
+  /// Curiosity-first: `<hook>: <subject>`, so the scroll-stopping phrase leads.
+  ///
+  /// Falls back to the plain subject when there is no hook, or when the hook
+  /// merely repeats what the subject already says.
+  static String _buildCatchyTitle(_Subject subject, SeoCategory category) {
+    const limit = SeoConstants.maxTitleLength;
+    final hook = category.hook;
+    final display = subject.display;
+
+    if (hook.isNotEmpty && !_subjectAlreadySays(display, hook)) {
+      final combined = '$hook: $display';
+      if (combined.length <= limit) return combined;
+    }
+
+    return TextUtils.truncateOnWordBoundary(display, limit);
+  }
+
+  /// Bare subject, nothing appended — the de-cluttered seed.
+  static String _buildMinimalTitle(_Subject subject) =>
+      TextUtils.truncateOnWordBoundary(
+        subject.display,
+        SeoConstants.maxTitleLength,
+      );
+
   // ---------------------------------------------------------------------
   // Description
   // ---------------------------------------------------------------------
+
+  /// Routes to the description builder for [variant].
+  static String _buildDescriptionFor(
+    SeoVariant variant,
+    _Subject subject,
+    SeoCategory category,
+  ) => switch (variant) {
+    SeoVariant.searchFocused => _buildDescription(subject, category),
+    SeoVariant.catchy => _buildCatchyDescription(subject, category),
+    SeoVariant.minimal => _buildMinimalDescription(subject),
+  };
 
   /// Two short lines: what the viewer is about to watch, then one detail.
   ///
@@ -250,6 +314,26 @@ abstract final class SeoGenerator {
       SeoConstants.maxDescriptionLength,
     );
   }
+
+  /// A punchier single lead line, then the category detail.
+  static String _buildCatchyDescription(
+    _Subject subject,
+    SeoCategory category,
+  ) {
+    final opener = 'You have to see this ${subject.sentence}!';
+    final description = '$opener\n\n${category.detail}';
+    return TextUtils.truncateOnWordBoundary(
+      description,
+      SeoConstants.maxDescriptionLength,
+    );
+  }
+
+  /// One short line, no category detail — the minimal seed.
+  static String _buildMinimalDescription(_Subject subject) =>
+      TextUtils.truncateOnWordBoundary(
+        'Watch this ${subject.sentence}.',
+        SeoConstants.maxDescriptionLength,
+      );
 }
 
 /// The descriptive core of a caption, in both the casing a title needs and

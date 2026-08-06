@@ -710,6 +710,78 @@ abstract class AppLocalizations {
   /// **'Shortsmith helps you reuse the videos you already published on TikTok. It never downloads other people\'s content: captions and thumbnails come from TikTok\'s public oEmbed endpoint, and video files come from your own device.'**
   String get settingsAboutBody;
 
+  /// No description provided for @aboutTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'About'**
+  String get aboutTitle;
+
+  /// No description provided for @privacyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Privacy'**
+  String get privacyTitle;
+
+  /// No description provided for @privacyIntro.
+  ///
+  /// In en, this message translates to:
+  /// **'Shortsmith is built to stay out of your way. Here is exactly what it does with your data.'**
+  String get privacyIntro;
+
+  /// No description provided for @privacyLocalOnly.
+  ///
+  /// In en, this message translates to:
+  /// **'Everything stays on your device. Your history, settings and video files are stored locally and are never uploaded to any server.'**
+  String get privacyLocalOnly;
+
+  /// No description provided for @privacyNoCredentials.
+  ///
+  /// In en, this message translates to:
+  /// **'No sign-in, ever. Shortsmith never asks for — and never stores — social-media passwords, cookies or session tokens.'**
+  String get privacyNoCredentials;
+
+  /// No description provided for @privacyPublicMetadata.
+  ///
+  /// In en, this message translates to:
+  /// **'Only public details are read. Captions and thumbnails come from TikTok\'s public oEmbed endpoint; nothing private is accessed.'**
+  String get privacyPublicMetadata;
+
+  /// No description provided for @privacyOwnVideo.
+  ///
+  /// In en, this message translates to:
+  /// **'You bring your own video. Shortsmith does not download watermark-free videos. To preview or save a clip, pick the original file you exported from your own TikTok profile.'**
+  String get privacyOwnVideo;
+
+  /// No description provided for @privacyLeastPermissions.
+  ///
+  /// In en, this message translates to:
+  /// **'Least privilege. The app uses the Android Storage Access Framework to open the files you choose, and requests no unnecessary permissions.'**
+  String get privacyLeastPermissions;
+
+  /// No description provided for @prepareVariantLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Style'**
+  String get prepareVariantLabel;
+
+  /// No description provided for @prepareVariantSearch.
+  ///
+  /// In en, this message translates to:
+  /// **'Search'**
+  String get prepareVariantSearch;
+
+  /// No description provided for @prepareVariantCatchy.
+  ///
+  /// In en, this message translates to:
+  /// **'Catchy'**
+  String get prepareVariantCatchy;
+
+  /// No description provided for @prepareVariantMinimal.
+  ///
+  /// In en, this message translates to:
+  /// **'Minimal'**
+  String get prepareVariantMinimal;
+
   /// No description provided for @errorTitle.
   ///
   /// In en, this message translates to:

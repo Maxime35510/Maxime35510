@@ -84,7 +84,12 @@ class ImportResultView extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(Gap.xs, Gap.xs, Gap.xs, Gap.sm),
+                  padding: const EdgeInsets.fromLTRB(
+                    Gap.xs,
+                    Gap.xs,
+                    Gap.xs,
+                    Gap.sm,
+                  ),
                   child: SectionHeader(title: l10n.resultPreviewTitle),
                 ),
                 if (state.pickedFile case final picked?)
@@ -151,10 +156,7 @@ class ImportResultView extends ConsumerWidget {
         ],
 
         // --- Actions -------------------------------------------------------
-        AnimatedEntrance(
-          index: 4,
-          child: _ImportActions(onPrepare: onPrepare),
-        ),
+        AnimatedEntrance(index: 4, child: _ImportActions(onPrepare: onPrepare)),
       ],
     );
   }
@@ -243,7 +245,9 @@ class _ImportActions extends ConsumerWidget {
 
   Future<void> _save(BuildContext context, WidgetRef ref) async {
     final l10n = context.l10n;
-    final failure = await ref.read(importControllerProvider.notifier).saveVideo();
+    final failure = await ref
+        .read(importControllerProvider.notifier)
+        .saveVideo();
     if (!context.mounted) return;
 
     if (failure != null) {
@@ -276,7 +280,10 @@ class _SaveProgress extends StatelessWidget {
         Row(
           children: [
             Expanded(
-              child: Text(l10n.saveVideoTitle, style: context.textStyles.titleSmall),
+              child: Text(
+                l10n.saveVideoTitle,
+                style: context.textStyles.titleSmall,
+              ),
             ),
             Text(
               l10n.saveVideoProgress(percent),
@@ -291,7 +298,8 @@ class _SaveProgress extends StatelessWidget {
             tween: Tween(begin: 0, end: fraction),
             duration: const Duration(milliseconds: 220),
             curve: Curves.easeOut,
-            builder: (context, value, _) => LinearProgressIndicator(value: value),
+            builder: (context, value, _) =>
+                LinearProgressIndicator(value: value),
           ),
         ),
       ],

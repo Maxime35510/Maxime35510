@@ -76,11 +76,14 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
 
     if (!mounted) return;
     final failure = ref.read(importControllerProvider).failure;
-    if (failure != null) AppFeedback.showFailure(context, failure, onRetry: _import);
+    if (failure != null)
+      AppFeedback.showFailure(context, failure, onRetry: _import);
   }
 
   Future<void> _pickFile() async {
-    final failure = await ref.read(importControllerProvider.notifier).pickVideoFile();
+    final failure = await ref
+        .read(importControllerProvider.notifier)
+        .pickVideoFile();
     if (failure != null && mounted) {
       AppFeedback.showFailure(context, failure);
     }
@@ -102,7 +105,10 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
         title: Text(l10n.importScreenTitle),
         actions: [
           if (state.isReady)
-            TextButton(onPressed: _startOver, child: Text(l10n.importStartOver)),
+            TextButton(
+              onPressed: _startOver,
+              child: Text(l10n.importStartOver),
+            ),
         ],
       ),
       body: SafeArea(
@@ -134,8 +140,9 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
                   state: state,
                   onPaste: _pasteFromClipboard,
                   onPickFile: _pickFile,
-                  onClearFile: () =>
-                      ref.read(importControllerProvider.notifier).clearPickedFile(),
+                  onClearFile: () => ref
+                      .read(importControllerProvider.notifier)
+                      .clearPickedFile(),
                   onSubmit: _import,
                 ),
               },
@@ -222,7 +229,10 @@ class _ImportForm extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(l10n.importPickFileLabel, style: context.textStyles.titleMedium),
+              Text(
+                l10n.importPickFileLabel,
+                style: context.textStyles.titleMedium,
+              ),
               Gap.h8,
               Text(
                 l10n.importPickFileHelper,

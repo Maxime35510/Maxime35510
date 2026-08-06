@@ -4,10 +4,12 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/extensions/context_extensions.dart';
 import '../../core/widgets/state_views.dart';
+import '../../features/about/presentation/screens/about_screen.dart';
 import '../../features/history/presentation/screens/entry_detail_screen.dart';
 import '../../features/home/presentation/screens/home_screen.dart';
 import '../../features/import/presentation/screens/import_screen.dart';
 import '../../features/seo/presentation/screens/prepare_screen.dart';
+import '../../features/settings/presentation/screens/privacy_screen.dart';
 import '../../features/settings/presentation/screens/settings_screen.dart';
 import '../../core/error/failure.dart';
 import 'app_routes.dart';
@@ -35,6 +37,16 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: AppRoutes.settingsPath.substring(1),
             name: AppRoutes.settingsName,
             builder: (context, state) => const SettingsScreen(),
+          ),
+          GoRoute(
+            path: AppRoutes.aboutPath.substring(1),
+            name: AppRoutes.aboutName,
+            builder: (context, state) => const AboutScreen(),
+          ),
+          GoRoute(
+            path: AppRoutes.privacyPath.substring(1),
+            name: AppRoutes.privacyName,
+            builder: (context, state) => const PrivacyScreen(),
           ),
           GoRoute(
             path: AppRoutes.detailPath.substring(1),

@@ -351,6 +351,48 @@ class AppLocalizationsEn extends AppLocalizations {
       'Shortsmith helps you reuse the videos you already published on TikTok. It never downloads other people\'s content: captions and thumbnails come from TikTok\'s public oEmbed endpoint, and video files come from your own device.';
 
   @override
+  String get aboutTitle => 'About';
+
+  @override
+  String get privacyTitle => 'Privacy';
+
+  @override
+  String get privacyIntro =>
+      'Shortsmith is built to stay out of your way. Here is exactly what it does with your data.';
+
+  @override
+  String get privacyLocalOnly =>
+      'Everything stays on your device. Your history, settings and video files are stored locally and are never uploaded to any server.';
+
+  @override
+  String get privacyNoCredentials =>
+      'No sign-in, ever. Shortsmith never asks for — and never stores — social-media passwords, cookies or session tokens.';
+
+  @override
+  String get privacyPublicMetadata =>
+      'Only public details are read. Captions and thumbnails come from TikTok\'s public oEmbed endpoint; nothing private is accessed.';
+
+  @override
+  String get privacyOwnVideo =>
+      'You bring your own video. Shortsmith does not download watermark-free videos. To preview or save a clip, pick the original file you exported from your own TikTok profile.';
+
+  @override
+  String get privacyLeastPermissions =>
+      'Least privilege. The app uses the Android Storage Access Framework to open the files you choose, and requests no unnecessary permissions.';
+
+  @override
+  String get prepareVariantLabel => 'Style';
+
+  @override
+  String get prepareVariantSearch => 'Search';
+
+  @override
+  String get prepareVariantCatchy => 'Catchy';
+
+  @override
+  String get prepareVariantMinimal => 'Minimal';
+
+  @override
   String get errorTitle => 'Something went wrong';
 
   @override

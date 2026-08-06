@@ -20,7 +20,9 @@ final class SettingsRepositoryImpl implements SettingsRepository {
 
     return AppSettings(
       themeMode: _readThemeMode(),
-      storageDirectory: (directory == null || directory.isEmpty) ? null : directory,
+      storageDirectory: (directory == null || directory.isEmpty)
+          ? null
+          : directory,
       maxHashtags:
           _prefs.getInt(StorageConstants.prefMaxHashtags) ??
           SeoConstants.defaultHashtagCount,
@@ -35,10 +37,7 @@ final class SettingsRepositoryImpl implements SettingsRepository {
       StorageConstants.prefThemeMode,
       settings.themeMode.name,
     );
-    await _prefs.setInt(
-      StorageConstants.prefMaxHashtags,
-      settings.maxHashtags,
-    );
+    await _prefs.setInt(StorageConstants.prefMaxHashtags, settings.maxHashtags);
     await _prefs.setBool(
       StorageConstants.prefAppendShortsTag,
       settings.appendShortsHashtag,

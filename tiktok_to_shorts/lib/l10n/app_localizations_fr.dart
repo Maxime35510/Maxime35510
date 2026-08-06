@@ -354,6 +354,48 @@ class AppLocalizationsFr extends AppLocalizations {
       'Shortsmith vous aide à réutiliser les vidéos que vous avez déjà publiées sur TikTok. L\'application ne télécharge jamais le contenu d\'autrui : les légendes et miniatures proviennent du point d\'accès public oEmbed de TikTok, et les fichiers vidéo de votre propre appareil.';
 
   @override
+  String get aboutTitle => 'À propos';
+
+  @override
+  String get privacyTitle => 'Confidentialité';
+
+  @override
+  String get privacyIntro =>
+      'Shortsmith est conçu pour se faire discret. Voici précisément ce qu\'il fait de vos données.';
+
+  @override
+  String get privacyLocalOnly =>
+      'Tout reste sur votre appareil. Votre historique, vos réglages et vos fichiers vidéo sont stockés localement et ne sont jamais envoyés sur un serveur.';
+
+  @override
+  String get privacyNoCredentials =>
+      'Aucune connexion, jamais. Shortsmith ne demande — et ne stocke — jamais de mots de passe, cookies ou jetons de session de réseaux sociaux.';
+
+  @override
+  String get privacyPublicMetadata =>
+      'Seules des informations publiques sont lues. Les légendes et miniatures proviennent du point d\'accès public oEmbed de TikTok ; rien de privé n\'est consulté.';
+
+  @override
+  String get privacyOwnVideo =>
+      'Vous fournissez votre propre vidéo. Shortsmith ne télécharge pas de vidéos sans filigrane. Pour prévisualiser ou enregistrer un clip, choisissez le fichier original que vous avez exporté depuis votre propre profil TikTok.';
+
+  @override
+  String get privacyLeastPermissions =>
+      'Moindre privilège. L\'application utilise le Storage Access Framework d\'Android pour ouvrir les fichiers que vous choisissez, et ne demande aucune permission superflue.';
+
+  @override
+  String get prepareVariantLabel => 'Style';
+
+  @override
+  String get prepareVariantSearch => 'Référencement';
+
+  @override
+  String get prepareVariantCatchy => 'Accrocheur';
+
+  @override
+  String get prepareVariantMinimal => 'Minimal';
+
+  @override
   String get errorTitle => 'Une erreur est survenue';
 
   @override

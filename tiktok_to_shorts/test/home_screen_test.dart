@@ -87,7 +87,8 @@ void main() {
   // history list is lazily built — anything below the fold is never laid out,
   // so the surface is made tall enough for every fixture card to exist.
   setUp(() {
-    final view = TestWidgetsFlutterBinding.instance.platformDispatcher.views.first;
+    final view =
+        TestWidgetsFlutterBinding.instance.platformDispatcher.views.first;
     view.physicalSize = const Size(1080, 4800);
     view.devicePixelRatio = 3;
     addTearDown(() {

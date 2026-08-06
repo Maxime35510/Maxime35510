@@ -107,9 +107,7 @@ class HistoryCard extends StatelessWidget {
                   label: Text(l10n.actionOpen),
                 ),
               ),
-              Expanded(
-                child: _CopySeoButton(entry: entry),
-              ),
+              Expanded(child: _CopySeoButton(entry: entry)),
               Expanded(
                 child: TextButton.icon(
                   onPressed: onDelete,

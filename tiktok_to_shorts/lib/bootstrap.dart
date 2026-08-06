@@ -20,33 +20,30 @@ import 'features/history/data/datasources/history_local_data_source.dart';
 Future<void> bootstrap() async {
   // `runZonedGuarded` catches errors raised outside the Flutter framework
   // (timers, isolate callbacks); `FlutterError.onError` covers the rest.
-  await runZonedGuarded(
-    () async {
-      WidgetsFlutterBinding.ensureInitialized();
+  await runZonedGuarded(() async {
+    WidgetsFlutterBinding.ensureInitialized();
 
-      FlutterError.onError = (details) {
-        FlutterError.presentError(details);
-        _log('Flutter error', details.exception, details.stack);
-      };
+    FlutterError.onError = (details) {
+      FlutterError.presentError(details);
+      _log('Flutter error', details.exception, details.stack);
+    };
 
-      await SystemChrome.setPreferredOrientations([
-        DeviceOrientation.portraitUp,
-        DeviceOrientation.portraitDown,
-      ]);
+    await SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.portraitDown,
+    ]);
 
-      SystemChrome.setSystemUIOverlayStyle(
-        const SystemUiOverlayStyle(
-          statusBarColor: Colors.transparent,
-          systemNavigationBarColor: Colors.transparent,
-        ),
-      );
+    SystemChrome.setSystemUIOverlayStyle(
+      const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        systemNavigationBarColor: Colors.transparent,
+      ),
+    );
 
-      final overrides = await _buildOverrides();
+    final overrides = await _buildOverrides();
 
-      runApp(ProviderScope(overrides: overrides, child: const ShortsmithApp()));
-    },
-    (error, stackTrace) => _log('Uncaught error', error, stackTrace),
-  );
+    runApp(ProviderScope(overrides: overrides, child: const ShortsmithApp()));
+  }, (error, stackTrace) => _log('Uncaught error', error, stackTrace));
 }
 
 /// Opens storage and resolves the values the DI graph needs up front.

@@ -25,7 +25,9 @@ abstract final class CaptionParser {
   static final RegExp _whitespace = RegExp(r'\s+');
 
   /// Punctuation left dangling once emoji and tags are removed.
-  static final RegExp _danglingPunctuation = RegExp(r'^[\s\-–—•·,.;:!?]+|[\s\-–—•·,;:]+$');
+  static final RegExp _danglingPunctuation = RegExp(
+    r'^[\s\-–—•·,.;:!?]+|[\s\-–—•·,;:]+$',
+  );
 
   /// Parses [caption]; a null or blank caption yields [ParsedCaption.empty].
   static ParsedCaption parse(String? caption) {

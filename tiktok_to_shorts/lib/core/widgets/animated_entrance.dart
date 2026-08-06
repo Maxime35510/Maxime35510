@@ -31,7 +31,11 @@ class AnimatedEntrance extends StatelessWidget {
 
     return child
         .animate()
-        .fadeIn(delay: delay, duration: MotionConstants.medium, curve: Curves.easeOut)
+        .fadeIn(
+          delay: delay,
+          duration: MotionConstants.medium,
+          curve: Curves.easeOut,
+        )
         .moveY(
           begin: 12,
           end: 0,

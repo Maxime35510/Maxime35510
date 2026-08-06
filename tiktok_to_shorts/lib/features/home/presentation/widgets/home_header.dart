@@ -21,58 +21,63 @@ class HomeHeader extends StatelessWidget {
     final titleStyle = context.textStyles.displayMedium;
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(Gap.md, Gap.lg, Gap.xs, Gap.lg),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(l10n.homeTitleLine1, style: titleStyle),
-                Row(
+          padding: const EdgeInsets.fromLTRB(Gap.md, Gap.lg, Gap.xs, Gap.lg),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    ShaderMask(
-                      // The gradient is painted through the glyphs themselves,
-                      // which keeps the arrow legible in both themes without
-                      // needing two separate colour sets.
-                      shaderCallback: (bounds) => const LinearGradient(
-                        colors: AppColors.brandGradient,
-                      ).createShader(bounds),
-                      child: Text(
-                        '→ ',
-                        style: titleStyle?.copyWith(color: Colors.white),
-                      ),
+                    Text(l10n.homeTitleLine1, style: titleStyle),
+                    Row(
+                      children: [
+                        ShaderMask(
+                          // The gradient is painted through the glyphs themselves,
+                          // which keeps the arrow legible in both themes without
+                          // needing two separate colour sets.
+                          shaderCallback: (bounds) => const LinearGradient(
+                            colors: AppColors.brandGradient,
+                          ).createShader(bounds),
+                          child: Text(
+                            '→ ',
+                            style: titleStyle?.copyWith(color: Colors.white),
+                          ),
+                        ),
+                        Flexible(
+                          child: Text(
+                            l10n.homeTitleLine2,
+                            style: titleStyle,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
                     ),
-                    Flexible(
-                      child: Text(
-                        l10n.homeTitleLine2,
-                        style: titleStyle,
-                        overflow: TextOverflow.ellipsis,
+                    Gap.h8,
+                    Text(
+                      l10n.homeSubtitle,
+                      style: context.textStyles.bodyMedium?.copyWith(
+                        color: palette.textSecondary,
                       ),
                     ),
                   ],
                 ),
-                Gap.h8,
-                Text(
-                  l10n.homeSubtitle,
-                  style: context.textStyles.bodyMedium?.copyWith(
-                    color: palette.textSecondary,
-                  ),
-                ),
-              ],
-            ),
+              ),
+              IconButton(
+                tooltip: l10n.settingsTitle,
+                onPressed: () => AppRoutes.goToSettings(context),
+                icon: const Icon(Icons.tune_rounded),
+              ),
+            ],
           ),
-          IconButton(
-            tooltip: l10n.settingsTitle,
-            onPressed: () => AppRoutes.goToSettings(context),
-            icon: const Icon(Icons.tune_rounded),
-          ),
-        ],
-      ),
-    )
+        )
         .animate()
         .fadeIn(duration: MotionConstants.slow, curve: Curves.easeOut)
-        .moveY(begin: 8, end: 0, duration: MotionConstants.slow, curve: Curves.easeOutCubic);
+        .moveY(
+          begin: 8,
+          end: 0,
+          duration: MotionConstants.slow,
+          curve: Curves.easeOutCubic,
+        );
   }
 }

@@ -34,10 +34,15 @@ final class ImportController extends AutoDisposeNotifier<ImportState> {
   ///
   /// [fallbackTitle] is the localised string used when a caption yields no
   /// usable words — passed in so the domain layer stays free of `l10n`.
-  Future<void> importFromLink(String rawUrl, {required String fallbackTitle}) async {
+  Future<void> importFromLink(
+    String rawUrl, {
+    required String fallbackTitle,
+  }) async {
     state = state.copyWith(status: ImportStatus.loading, clearFailure: true);
 
-    final result = await ref.read(tikTokRepositoryProvider).fetchMetadata(rawUrl);
+    final result = await ref
+        .read(tikTokRepositoryProvider)
+        .fetchMetadata(rawUrl);
 
     await result.fold(
       (video) => _onMetadataResolved(video, fallbackTitle: fallbackTitle),
@@ -73,18 +78,15 @@ final class ImportController extends AutoDisposeNotifier<ImportState> {
   Future<Failure?> pickVideoFile() async {
     final result = await ref.read(filePickerServiceProvider).pickVideo();
 
-    return result.fold(
-      (picked) {
-        state = state.copyWith(
-          pickedFile: picked,
-          clearSavedPath: true,
-          clearFailure: true,
-        );
-        _attachLocalFileToEntry(picked.path);
-        return null;
-      },
-      (failure) => failure,
-    );
+    return result.fold((picked) {
+      state = state.copyWith(
+        pickedFile: picked,
+        clearSavedPath: true,
+        clearFailure: true,
+      );
+      _attachLocalFileToEntry(picked.path);
+      return null;
+    }, (failure) => failure);
   }
 
   void clearPickedFile() =>
@@ -99,7 +101,11 @@ final class ImportController extends AutoDisposeNotifier<ImportState> {
       return const Failure(FailureKind.fileMissing);
     }
 
-    state = state.copyWith(isSaving: true, saveFraction: 0, clearSavedPath: true);
+    state = state.copyWith(
+      isSaving: true,
+      saveFraction: 0,
+      clearSavedPath: true,
+    );
 
     final result = await ref
         .read(videoStorageServiceProvider)
@@ -118,7 +124,11 @@ final class ImportController extends AutoDisposeNotifier<ImportState> {
 
     return result.fold(
       (path) {
-        state = state.copyWith(isSaving: false, saveFraction: 1, savedPath: path);
+        state = state.copyWith(
+          isSaving: false,
+          saveFraction: 1,
+          savedPath: path,
+        );
         _attachSavedPathToEntry(path);
         return null;
       },
@@ -190,7 +200,9 @@ final class ImportController extends AutoDisposeNotifier<ImportState> {
       _patchEntry((entry) => entry.copyWith(localVideoPath: path));
 
   /// Applies [transform] to the history entry backing this import, if any.
-  Future<void> _patchEntry(HistoryEntry Function(HistoryEntry entry) transform) async {
+  Future<void> _patchEntry(
+    HistoryEntry Function(HistoryEntry entry) transform,
+  ) async {
     final id = state.historyEntryId;
     if (id == null) return;
 

@@ -29,7 +29,10 @@ class EmptyState extends StatelessWidget {
 
     return Center(
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: Gap.lg, vertical: Gap.xl),
+        padding: const EdgeInsets.symmetric(
+          horizontal: Gap.lg,
+          vertical: Gap.xl,
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
