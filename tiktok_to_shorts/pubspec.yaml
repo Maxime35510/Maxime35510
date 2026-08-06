@@ -1,0 +1,72 @@
+name: shortsmith
+description: >-
+  Shortsmith — a personal productivity assistant that helps creators reuse
+  their own TikTok content when publishing YouTube Shorts.
+publish_to: "none"
+
+# version: <semantic version>+<build number used as Android versionCode>
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.12.2
+
+dependencies:
+  flutter:
+    sdk: flutter
+  # Localisation delegates (ARB files live in lib/l10n, see `flutter.generate`).
+  flutter_localizations:
+    sdk: flutter
+
+  # --- State management / DI ------------------------------------------------
+  flutter_riverpod: ^2.6.1
+
+  # --- Navigation -----------------------------------------------------------
+  go_router: ^17.4.0
+
+  # --- Networking -----------------------------------------------------------
+  dio: ^5.11.0
+
+  # --- Persistence ----------------------------------------------------------
+  hive_ce: ^2.19.3
+  hive_ce_flutter: ^2.3.4
+  shared_preferences: ^2.5.5
+
+  # --- Platform integration -------------------------------------------------
+  path_provider: ^2.1.6
+  url_launcher: ^6.3.2
+  video_player: ^2.13.0
+
+  # --- UI -------------------------------------------------------------------
+  cached_network_image: ^3.4.1
+  flutter_animate: ^4.5.2
+  intl: ^0.20.2
+  file_selector: ^1.1.0
+
+  # --- Packaging (pure Dart, no native code) --------------------------------
+  # ZIP export of a project's metadata + optional media. Chosen because it is
+  # platform-channel-free, so it adds no Android permissions.
+  archive: ^4.0.0
+
+  # --- Sharing --------------------------------------------------------------
+  # Android Share Sheet (ACTION_SEND) for metadata text and exported files.
+  # Uses no storage permission — it hands a FileProvider URI to the OS.
+  share_plus: ^12.0.0
+  path: ^1.9.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+  # Generates `AppLocalizations` from lib/l10n/*.arb (configured in l10n.yaml).
+  generate: true
+
+  fonts:
+    # Inter is bundled (rather than fetched at runtime) so typography is
+    # identical offline and on first launch. Variable weight axis is driven
+    # via FontVariation in AppTypography. Licence: assets/fonts/OFL.txt.
+    - family: Inter
+      fonts:
+        - asset: assets/fonts/Inter-Variable.ttf

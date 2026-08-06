@@ -1,0 +1,7 @@
+# Copy to android/key.properties and fill in to sign release builds.
+# This file must never be committed — android/key.properties is gitignored.
+storePassword=your-keystore-password
+keyPassword=your-key-password
+keyAlias=upload
+# Absolute path, or a path relative to the android/app directory.
+storeFile=/absolute/path/to/upload-keystore.jks

@@ -1,0 +1,260 @@
+{
+  "@@locale": "en",
+
+  "appName": "Shortsmith",
+  "homeTitleLine1": "TikTok",
+  "homeTitleLine2": "YouTube",
+  "homeSubtitle": "Turn your own TikToks into Shorts-ready metadata.",
+
+  "importCardTitle": "Import your own TikTok video",
+  "importCardBody": "Paste a link to one of your own TikToks, or pick the video file you downloaded from your TikTok profile.",
+  "importVideoButton": "Import Video",
+
+  "historySectionTitle": "History",
+  "historyEmptyTitle": "Nothing here yet",
+  "historyEmptyBody": "Imported videos will appear here so you can copy their SEO again later.",
+  "historySearchHint": "Search captions, titles, hashtags",
+  "historySearchEmptyTitle": "No matches",
+  "historySearchEmptyBody": "Try a different caption, title or hashtag.",
+  "historyItemCount": "{count, plural, =0{No videos} =1{1 video} other{{count} videos}}",
+  "@historyItemCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+
+  "actionOpen": "Open",
+  "actionCopySeo": "Copy SEO",
+  "actionDelete": "Delete",
+  "actionCancel": "Cancel",
+  "actionRetry": "Retry",
+  "actionSave": "Save",
+  "actionDone": "Done",
+  "actionClose": "Close",
+  "actionEdit": "Edit",
+  "actionReset": "Reset",
+  "actionPaste": "Paste",
+  "actionClear": "Clear",
+
+  "deleteDialogTitle": "Delete this entry?",
+  "deleteDialogBody": "This removes the entry from your history. The saved video file is not deleted.",
+  "deleteDialogConfirm": "Delete",
+  "deletedSnack": "Entry deleted",
+  "undoAction": "Undo",
+
+  "importScreenTitle": "Import",
+  "importLinkLabel": "TikTok link",
+  "importLinkHint": "https://www.tiktok.com/@you/video/...",
+  "importLinkHelper": "Only your own videos. We use TikTok's public oEmbed endpoint to read the caption and thumbnail.",
+  "importFetchMetadata": "Fetch details",
+  "importPickFileLabel": "Video file",
+  "importPickFileButton": "Choose video file",
+  "importPickFileHelper": "Optional. Pick the .mp4 you downloaded from your own TikTok profile so you can preview and save it.",
+  "importFileSelected": "Selected: {name}",
+  "@importFileSelected": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "importLoadingTitle": "Reading video details",
+  "importLoadingBody": "This only takes a moment.",
+  "importStartOver": "Start over",
+
+  "resultCaptionTitle": "Caption",
+  "resultHashtagsTitle": "Hashtags",
+  "resultAuthorTitle": "Author",
+  "resultPreviewTitle": "Video preview",
+  "resultNoPreview": "Pick the video file to preview it here.",
+  "resultNoCaption": "No caption found for this video.",
+
+  "actionSaveVideo": "Save Video",
+  "actionCopyCaption": "Copy Caption",
+  "actionCopyHashtags": "Copy Hashtags",
+  "actionCopyEverything": "Copy Everything",
+  "actionPrepareForYouTube": "Prepare for YouTube",
+
+  "prepareScreenTitle": "Prepare for YouTube",
+  "prepareIntro": "Review and edit anything before you publish. Changes are saved to your history.",
+  "prepareTitleLabel": "Title",
+  "prepareDescriptionLabel": "Description",
+  "prepareHashtagsLabel": "Hashtags",
+  "prepareRegenerate": "Regenerate",
+  "prepareCharCount": "{count}/{max}",
+  "@prepareCharCount": {
+    "placeholders": {
+      "count": { "type": "int" },
+      "max": { "type": "int" }
+    }
+  },
+  "prepareTitleTooLong": "YouTube titles are limited to {max} characters.",
+  "@prepareTitleTooLong": {
+    "placeholders": {
+      "max": { "type": "int" }
+    }
+  },
+  "prepareEmptyTitle": "Add a title before copying.",
+  "prepareSavedSnack": "Saved to history",
+  "prepareRegeneratedSnack": "Metadata regenerated from the original caption",
+
+  "copiedSnack": "Copied to clipboard",
+  "copiedTitleSnack": "Title copied",
+  "copiedDescriptionSnack": "Description copied",
+  "copiedHashtagsSnack": "Hashtags copied",
+  "copiedEverythingSnack": "Title, description and hashtags copied",
+  "copyNothingToCopy": "There is nothing to copy yet",
+
+  "saveVideoTitle": "Saving video",
+  "saveVideoProgress": "{percent}% copied",
+  "@saveVideoProgress": {
+    "placeholders": {
+      "percent": { "type": "int" }
+    }
+  },
+  "saveVideoSuccess": "Video saved",
+  "saveVideoSuccessBody": "Saved to {path}",
+  "@saveVideoSuccessBody": {
+    "placeholders": {
+      "path": { "type": "String" }
+    }
+  },
+  "saveVideoNoSource": "Pick a video file first.",
+
+  "detailScreenTitle": "Details",
+  "detailSourceLink": "Open original on TikTok",
+  "detailSavedOn": "Saved {date}",
+  "@detailSavedOn": {
+    "placeholders": {
+      "date": { "type": "String" }
+    }
+  },
+  "detailNoVideoFile": "No local video file for this entry.",
+
+  "settingsTitle": "Settings",
+  "settingsAppearance": "Appearance",
+  "settingsTheme": "Theme",
+  "settingsThemeLight": "Light",
+  "settingsThemeDark": "Dark",
+  "settingsThemeSystem": "System",
+  "settingsSeo": "SEO defaults",
+  "settingsMaxHashtags": "Maximum hashtags",
+  "settingsMaxHashtagsBody": "How many hashtags to keep when generating Shorts metadata.",
+  "settingsAppendShorts": "Append #shorts",
+  "settingsAppendShortsBody": "Adds the #shorts hashtag to generated metadata.",
+  "settingsStorage": "Storage",
+  "settingsStorageFolder": "Storage folder",
+  "settingsStorageFolderBody": "Where saved videos are written.",
+  "settingsChangeFolder": "Change folder",
+  "settingsDeleteCache": "Delete cache",
+  "settingsDeleteCacheBody": "Clears cached thumbnails and temporary files.",
+  "settingsCacheCleared": "Cache cleared ({size} freed)",
+  "@settingsCacheCleared": {
+    "placeholders": {
+      "size": { "type": "String" }
+    }
+  },
+  "settingsAbout": "About",
+  "settingsVersion": "Version",
+  "settingsLicenses": "Open source licenses",
+  "settingsAboutBody": "Shortsmith helps you reuse the videos you already published on TikTok. It never downloads other people's content: captions and thumbnails come from TikTok's public oEmbed endpoint, and video files come from your own device.",
+
+  "aboutTitle": "About",
+
+  "privacyTitle": "Privacy",
+  "privacyIntro": "Shortsmith is built to stay out of your way. Here is exactly what it does with your data.",
+  "privacyLocalOnly": "Everything stays on your device. Your history, settings and video files are stored locally and are never uploaded to any server.",
+  "privacyNoCredentials": "No sign-in, ever. Shortsmith never asks for — and never stores — social-media passwords, cookies or session tokens.",
+  "privacyPublicMetadata": "Only public details are read. Captions and thumbnails come from TikTok's public oEmbed endpoint; nothing private is accessed.",
+  "privacyOwnVideo": "You bring your own video. Shortsmith does not download watermark-free videos. To preview or save a clip, pick the original file you exported from your own TikTok profile.",
+  "privacyLeastPermissions": "Least privilege. The app uses the Android Storage Access Framework to open the files you choose, and requests no unnecessary permissions.",
+
+  "prepareVariantLabel": "Style",
+  "prepareVariantSearch": "Search",
+  "prepareVariantCatchy": "Catchy",
+  "prepareVariantMinimal": "Minimal",
+
+  "errorTitle": "Something went wrong",
+  "errorNoInternet": "You appear to be offline. Check your connection and try again.",
+  "errorTimeout": "The request took too long. Please try again.",
+  "errorInvalidLink": "That does not look like a TikTok video link.",
+  "errorNotFound": "That video could not be found. It may be private or deleted.",
+  "errorEmptyResponse": "TikTok returned no details for that link.",
+  "errorRateLimited": "Too many requests. Please wait a moment and try again.",
+  "errorServer": "TikTok is not responding right now. Please try again later.",
+  "errorPermissionDenied": "Permission denied. Grant storage access to save videos.",
+  "errorStorageFull": "Not enough storage space to save this video.",
+  "errorFileMissing": "That file no longer exists on this device.",
+  "errorStorage": "The file could not be saved.",
+  "errorCancelled": "Cancelled.",
+  "errorUnknown": "An unexpected error occurred. Please try again.",
+
+  "openSettings": "Open settings",
+
+  "homeTagline": "One video. Every platform.",
+  "homeUniversalHint": "Paste a TikTok, YouTube Shorts, or Instagram Reels link",
+  "detectTikTok": "TikTok detected",
+  "detectYouTube": "YouTube detected",
+  "detectInstagram": "Instagram detected",
+  "detectInvalid": "Invalid or unsupported link",
+  "homeDestination": "Destination",
+  "homeQuickConvert": "Quick Convert",
+  "homeImportLocalVideo": "Import local video",
+  "homeRecentProjects": "Recent projects",
+  "homeSeeAll": "See all",
+
+  "convertTitle": "Convert",
+  "convertReview": "Review",
+  "convertSourceCaption": "Source caption",
+  "convertSourceCaptionHint": "Paste or type the caption to transform",
+  "convertFetchCaption": "Fetch caption",
+  "convertNoOutput": "Add a source caption to generate metadata.",
+  "convertCaptionLabel": "Caption",
+  "convertHookLabel": "Opening hook",
+  "convertFrom": "From {platform}",
+  "@convertFrom": { "placeholders": { "platform": { "type": "String" } } },
+  "convertPreset": "Preset",
+  "convertPresetNone": "None",
+  "convertDictionary": "Smart capitalization",
+  "convertDictionaryBody": "Fixes casing like asmr → ASMR, iphone → iPhone.",
+
+  "missingVideoTitle": "Metadata was imported successfully, but no local video file is attached.",
+  "missingVideoSelect": "Select original video",
+  "missingVideoContinue": "Continue with metadata only",
+  "attachVideo": "Attach original video",
+  "videoFileName": "File",
+  "videoFileSize": "Size",
+  "videoResolution": "Resolution",
+  "videoDuration": "Duration",
+  "videoAspect": "Aspect ratio",
+  "safeZones": "Safe zones",
+  "safeZonesBody": "Approximate areas each app covers with its own controls.",
+
+  "exportSection": "Export & share",
+  "exportShareMetadata": "Share metadata",
+  "exportShareVideo": "Share video",
+  "exportPackage": "Export package",
+  "exportZip": "Export ZIP",
+  "exportDone": "Exported to {path}",
+  "@exportDone": { "placeholders": { "path": { "type": "String" } } },
+  "shareNoVideo": "Attach a video first to share it.",
+
+  "validationTitle": "Before you export",
+  "valVideoMissing": "No video attached — you can still export metadata only.",
+  "valLowResolution": "Low resolution — below 720p on the short side.",
+  "valNotVertical": "Not vertical — a 9:16 clip fills the screen best.",
+  "valTooLong": "Longer than 3 minutes — trim for Shorts and Reels.",
+  "valDuplicateHashtags": "Duplicate hashtags detected.",
+  "valUnsupportedFile": "Unsupported file type.",
+  "valNoMetadata": "No metadata generated yet.",
+  "valWatermarkReminder": "Check the video for a burned-in watermark before publishing.",
+
+  "projectsTitle": "Projects",
+  "projectFavorite": "Favorite",
+  "projectUnfavorite": "Remove favorite",
+  "batchTitle": "Batch convert",
+  "batchSelect": "Select items",
+  "batchRun": "Run batch",
+  "batchRetryFailed": "Retry failed",
+  "batchCancel": "Cancel",
+  "batchProgress": "{done}/{total} done · {failed} failed",
+  "@batchProgress": { "placeholders": { "done": { "type": "int" }, "total": { "type": "int" }, "failed": { "type": "int" } } }
+}
