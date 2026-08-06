@@ -21,6 +21,15 @@ abstract final class AppRoutes {
   static const String privacyPath = '/privacy';
   static const String privacyName = 'privacy';
 
+  static const String convertPath = '/convert';
+  static const String convertName = 'convert';
+
+  static const String projectsPath = '/projects';
+  static const String projectsName = 'projects';
+
+  static const String batchPath = '/batch';
+  static const String batchName = 'batch';
+
   /// Detail screen for one history entry.
   static const String detailPath = '/entry/:id';
   static const String detailName = 'detail';
@@ -43,6 +52,14 @@ abstract final class AppRoutes {
 
   static void goToPrivacy(BuildContext context) =>
       context.pushNamed(privacyName);
+
+  static void goToConvert(BuildContext context) =>
+      context.pushNamed(convertName);
+
+  static void goToProjects(BuildContext context) =>
+      context.pushNamed(projectsName);
+
+  static void goToBatch(BuildContext context) => context.pushNamed(batchName);
 
   static void goToDetail(BuildContext context, String entryId) =>
       context.pushNamed(detailName, pathParameters: {entryIdParam: entryId});

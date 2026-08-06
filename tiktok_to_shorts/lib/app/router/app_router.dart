@@ -5,8 +5,11 @@ import 'package:go_router/go_router.dart';
 import '../../core/extensions/context_extensions.dart';
 import '../../core/widgets/state_views.dart';
 import '../../features/about/presentation/screens/about_screen.dart';
+import '../../features/batch/presentation/screens/batch_screen.dart';
+import '../../features/convert/presentation/screens/convert_screen.dart';
 import '../../features/history/presentation/screens/entry_detail_screen.dart';
-import '../../features/home/presentation/screens/home_screen.dart';
+import '../../features/history/presentation/screens/projects_screen.dart';
+import '../../features/home/presentation/screens/universal_home_screen.dart';
 import '../../features/import/presentation/screens/import_screen.dart';
 import '../../features/seo/presentation/screens/prepare_screen.dart';
 import '../../features/settings/presentation/screens/privacy_screen.dart';
@@ -26,12 +29,29 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.homePath,
         name: AppRoutes.homeName,
-        builder: (context, state) => const HomeScreen(),
+        builder: (context, state) => const UniversalHomeScreen(),
         routes: [
           GoRoute(
             path: AppRoutes.importPath.substring(1),
             name: AppRoutes.importName,
             builder: (context, state) => const ImportScreen(),
+          ),
+          GoRoute(
+            path: AppRoutes.convertPath.substring(1),
+            name: AppRoutes.convertName,
+            builder: (context, state) => const ConvertScreen(),
+          ),
+          GoRoute(
+            path: AppRoutes.projectsPath.substring(1),
+            name: AppRoutes.projectsName,
+            builder: (context, state) => const ProjectsScreen(),
+            routes: [
+              GoRoute(
+                path: AppRoutes.batchPath.substring(1),
+                name: AppRoutes.batchName,
+                builder: (context, state) => const BatchScreen(),
+              ),
+            ],
           ),
           GoRoute(
             path: AppRoutes.settingsPath.substring(1),

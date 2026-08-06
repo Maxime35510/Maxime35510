@@ -448,4 +448,201 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get openSettings => 'Ouvrir les paramètres';
+
+  @override
+  String get homeTagline => 'Une vidéo. Toutes les plateformes.';
+
+  @override
+  String get homeUniversalHint =>
+      'Collez un lien TikTok, YouTube Shorts ou Instagram Reels';
+
+  @override
+  String get detectTikTok => 'TikTok détecté';
+
+  @override
+  String get detectYouTube => 'YouTube détecté';
+
+  @override
+  String get detectInstagram => 'Instagram détecté';
+
+  @override
+  String get detectInvalid => 'Lien invalide ou non pris en charge';
+
+  @override
+  String get homeDestination => 'Destination';
+
+  @override
+  String get homeQuickConvert => 'Conversion rapide';
+
+  @override
+  String get homeImportLocalVideo => 'Importer une vidéo locale';
+
+  @override
+  String get homeRecentProjects => 'Projets récents';
+
+  @override
+  String get homeSeeAll => 'Tout voir';
+
+  @override
+  String get convertTitle => 'Convertir';
+
+  @override
+  String get convertReview => 'Révision';
+
+  @override
+  String get convertSourceCaption => 'Légende source';
+
+  @override
+  String get convertSourceCaptionHint =>
+      'Collez ou saisissez la légende à transformer';
+
+  @override
+  String get convertFetchCaption => 'Récupérer la légende';
+
+  @override
+  String get convertNoOutput =>
+      'Ajoutez une légende source pour générer les métadonnées.';
+
+  @override
+  String get convertCaptionLabel => 'Légende';
+
+  @override
+  String get convertHookLabel => 'Accroche d\'ouverture';
+
+  @override
+  String convertFrom(String platform) {
+    return 'Depuis $platform';
+  }
+
+  @override
+  String get convertPreset => 'Préréglage';
+
+  @override
+  String get convertPresetNone => 'Aucun';
+
+  @override
+  String get convertDictionary => 'Majuscules intelligentes';
+
+  @override
+  String get convertDictionaryBody =>
+      'Corrige la casse : asmr → ASMR, iphone → iPhone.';
+
+  @override
+  String get missingVideoTitle =>
+      'Les métadonnées ont bien été importées, mais aucun fichier vidéo local n\'est joint.';
+
+  @override
+  String get missingVideoSelect => 'Sélectionner la vidéo originale';
+
+  @override
+  String get missingVideoContinue => 'Continuer avec les métadonnées seules';
+
+  @override
+  String get attachVideo => 'Joindre la vidéo originale';
+
+  @override
+  String get videoFileName => 'Fichier';
+
+  @override
+  String get videoFileSize => 'Taille';
+
+  @override
+  String get videoResolution => 'Résolution';
+
+  @override
+  String get videoDuration => 'Durée';
+
+  @override
+  String get videoAspect => 'Format';
+
+  @override
+  String get safeZones => 'Zones de sécurité';
+
+  @override
+  String get safeZonesBody =>
+      'Zones approximatives que chaque application recouvre de ses commandes.';
+
+  @override
+  String get exportSection => 'Exporter et partager';
+
+  @override
+  String get exportShareMetadata => 'Partager les métadonnées';
+
+  @override
+  String get exportShareVideo => 'Partager la vidéo';
+
+  @override
+  String get exportPackage => 'Exporter le dossier';
+
+  @override
+  String get exportZip => 'Exporter en ZIP';
+
+  @override
+  String exportDone(String path) {
+    return 'Exporté vers $path';
+  }
+
+  @override
+  String get shareNoVideo => 'Joignez d\'abord une vidéo pour la partager.';
+
+  @override
+  String get validationTitle => 'Avant d\'exporter';
+
+  @override
+  String get valVideoMissing =>
+      'Aucune vidéo jointe — vous pouvez exporter les métadonnées seules.';
+
+  @override
+  String get valLowResolution =>
+      'Basse résolution — en dessous de 720p sur le petit côté.';
+
+  @override
+  String get valNotVertical =>
+      'Pas vertical — un format 9:16 remplit le mieux l\'écran.';
+
+  @override
+  String get valTooLong =>
+      'Plus de 3 minutes — raccourcissez pour Shorts et Reels.';
+
+  @override
+  String get valDuplicateHashtags => 'Hashtags en double détectés.';
+
+  @override
+  String get valUnsupportedFile => 'Type de fichier non pris en charge.';
+
+  @override
+  String get valNoMetadata => 'Aucune métadonnée générée pour l\'instant.';
+
+  @override
+  String get valWatermarkReminder =>
+      'Vérifiez l\'absence de filigrane incrusté avant de publier.';
+
+  @override
+  String get projectsTitle => 'Projets';
+
+  @override
+  String get projectFavorite => 'Favori';
+
+  @override
+  String get projectUnfavorite => 'Retirer des favoris';
+
+  @override
+  String get batchTitle => 'Conversion par lot';
+
+  @override
+  String get batchSelect => 'Sélectionner des éléments';
+
+  @override
+  String get batchRun => 'Lancer le lot';
+
+  @override
+  String get batchRetryFailed => 'Réessayer les échecs';
+
+  @override
+  String get batchCancel => 'Annuler';
+
+  @override
+  String batchProgress(int done, int total, int failed) {
+    return '$done/$total terminés · $failed en échec';
+  }
 }

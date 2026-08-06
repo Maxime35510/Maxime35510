@@ -871,6 +871,366 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Open settings'**
   String get openSettings;
+
+  /// No description provided for @homeTagline.
+  ///
+  /// In en, this message translates to:
+  /// **'One video. Every platform.'**
+  String get homeTagline;
+
+  /// No description provided for @homeUniversalHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Paste a TikTok, YouTube Shorts, or Instagram Reels link'**
+  String get homeUniversalHint;
+
+  /// No description provided for @detectTikTok.
+  ///
+  /// In en, this message translates to:
+  /// **'TikTok detected'**
+  String get detectTikTok;
+
+  /// No description provided for @detectYouTube.
+  ///
+  /// In en, this message translates to:
+  /// **'YouTube detected'**
+  String get detectYouTube;
+
+  /// No description provided for @detectInstagram.
+  ///
+  /// In en, this message translates to:
+  /// **'Instagram detected'**
+  String get detectInstagram;
+
+  /// No description provided for @detectInvalid.
+  ///
+  /// In en, this message translates to:
+  /// **'Invalid or unsupported link'**
+  String get detectInvalid;
+
+  /// No description provided for @homeDestination.
+  ///
+  /// In en, this message translates to:
+  /// **'Destination'**
+  String get homeDestination;
+
+  /// No description provided for @homeQuickConvert.
+  ///
+  /// In en, this message translates to:
+  /// **'Quick Convert'**
+  String get homeQuickConvert;
+
+  /// No description provided for @homeImportLocalVideo.
+  ///
+  /// In en, this message translates to:
+  /// **'Import local video'**
+  String get homeImportLocalVideo;
+
+  /// No description provided for @homeRecentProjects.
+  ///
+  /// In en, this message translates to:
+  /// **'Recent projects'**
+  String get homeRecentProjects;
+
+  /// No description provided for @homeSeeAll.
+  ///
+  /// In en, this message translates to:
+  /// **'See all'**
+  String get homeSeeAll;
+
+  /// No description provided for @convertTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Convert'**
+  String get convertTitle;
+
+  /// No description provided for @convertReview.
+  ///
+  /// In en, this message translates to:
+  /// **'Review'**
+  String get convertReview;
+
+  /// No description provided for @convertSourceCaption.
+  ///
+  /// In en, this message translates to:
+  /// **'Source caption'**
+  String get convertSourceCaption;
+
+  /// No description provided for @convertSourceCaptionHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Paste or type the caption to transform'**
+  String get convertSourceCaptionHint;
+
+  /// No description provided for @convertFetchCaption.
+  ///
+  /// In en, this message translates to:
+  /// **'Fetch caption'**
+  String get convertFetchCaption;
+
+  /// No description provided for @convertNoOutput.
+  ///
+  /// In en, this message translates to:
+  /// **'Add a source caption to generate metadata.'**
+  String get convertNoOutput;
+
+  /// No description provided for @convertCaptionLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Caption'**
+  String get convertCaptionLabel;
+
+  /// No description provided for @convertHookLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Opening hook'**
+  String get convertHookLabel;
+
+  /// No description provided for @convertFrom.
+  ///
+  /// In en, this message translates to:
+  /// **'From {platform}'**
+  String convertFrom(String platform);
+
+  /// No description provided for @convertPreset.
+  ///
+  /// In en, this message translates to:
+  /// **'Preset'**
+  String get convertPreset;
+
+  /// No description provided for @convertPresetNone.
+  ///
+  /// In en, this message translates to:
+  /// **'None'**
+  String get convertPresetNone;
+
+  /// No description provided for @convertDictionary.
+  ///
+  /// In en, this message translates to:
+  /// **'Smart capitalization'**
+  String get convertDictionary;
+
+  /// No description provided for @convertDictionaryBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Fixes casing like asmr → ASMR, iphone → iPhone.'**
+  String get convertDictionaryBody;
+
+  /// No description provided for @missingVideoTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Metadata was imported successfully, but no local video file is attached.'**
+  String get missingVideoTitle;
+
+  /// No description provided for @missingVideoSelect.
+  ///
+  /// In en, this message translates to:
+  /// **'Select original video'**
+  String get missingVideoSelect;
+
+  /// No description provided for @missingVideoContinue.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue with metadata only'**
+  String get missingVideoContinue;
+
+  /// No description provided for @attachVideo.
+  ///
+  /// In en, this message translates to:
+  /// **'Attach original video'**
+  String get attachVideo;
+
+  /// No description provided for @videoFileName.
+  ///
+  /// In en, this message translates to:
+  /// **'File'**
+  String get videoFileName;
+
+  /// No description provided for @videoFileSize.
+  ///
+  /// In en, this message translates to:
+  /// **'Size'**
+  String get videoFileSize;
+
+  /// No description provided for @videoResolution.
+  ///
+  /// In en, this message translates to:
+  /// **'Resolution'**
+  String get videoResolution;
+
+  /// No description provided for @videoDuration.
+  ///
+  /// In en, this message translates to:
+  /// **'Duration'**
+  String get videoDuration;
+
+  /// No description provided for @videoAspect.
+  ///
+  /// In en, this message translates to:
+  /// **'Aspect ratio'**
+  String get videoAspect;
+
+  /// No description provided for @safeZones.
+  ///
+  /// In en, this message translates to:
+  /// **'Safe zones'**
+  String get safeZones;
+
+  /// No description provided for @safeZonesBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Approximate areas each app covers with its own controls.'**
+  String get safeZonesBody;
+
+  /// No description provided for @exportSection.
+  ///
+  /// In en, this message translates to:
+  /// **'Export & share'**
+  String get exportSection;
+
+  /// No description provided for @exportShareMetadata.
+  ///
+  /// In en, this message translates to:
+  /// **'Share metadata'**
+  String get exportShareMetadata;
+
+  /// No description provided for @exportShareVideo.
+  ///
+  /// In en, this message translates to:
+  /// **'Share video'**
+  String get exportShareVideo;
+
+  /// No description provided for @exportPackage.
+  ///
+  /// In en, this message translates to:
+  /// **'Export package'**
+  String get exportPackage;
+
+  /// No description provided for @exportZip.
+  ///
+  /// In en, this message translates to:
+  /// **'Export ZIP'**
+  String get exportZip;
+
+  /// No description provided for @exportDone.
+  ///
+  /// In en, this message translates to:
+  /// **'Exported to {path}'**
+  String exportDone(String path);
+
+  /// No description provided for @shareNoVideo.
+  ///
+  /// In en, this message translates to:
+  /// **'Attach a video first to share it.'**
+  String get shareNoVideo;
+
+  /// No description provided for @validationTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Before you export'**
+  String get validationTitle;
+
+  /// No description provided for @valVideoMissing.
+  ///
+  /// In en, this message translates to:
+  /// **'No video attached — you can still export metadata only.'**
+  String get valVideoMissing;
+
+  /// No description provided for @valLowResolution.
+  ///
+  /// In en, this message translates to:
+  /// **'Low resolution — below 720p on the short side.'**
+  String get valLowResolution;
+
+  /// No description provided for @valNotVertical.
+  ///
+  /// In en, this message translates to:
+  /// **'Not vertical — a 9:16 clip fills the screen best.'**
+  String get valNotVertical;
+
+  /// No description provided for @valTooLong.
+  ///
+  /// In en, this message translates to:
+  /// **'Longer than 3 minutes — trim for Shorts and Reels.'**
+  String get valTooLong;
+
+  /// No description provided for @valDuplicateHashtags.
+  ///
+  /// In en, this message translates to:
+  /// **'Duplicate hashtags detected.'**
+  String get valDuplicateHashtags;
+
+  /// No description provided for @valUnsupportedFile.
+  ///
+  /// In en, this message translates to:
+  /// **'Unsupported file type.'**
+  String get valUnsupportedFile;
+
+  /// No description provided for @valNoMetadata.
+  ///
+  /// In en, this message translates to:
+  /// **'No metadata generated yet.'**
+  String get valNoMetadata;
+
+  /// No description provided for @valWatermarkReminder.
+  ///
+  /// In en, this message translates to:
+  /// **'Check the video for a burned-in watermark before publishing.'**
+  String get valWatermarkReminder;
+
+  /// No description provided for @projectsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Projects'**
+  String get projectsTitle;
+
+  /// No description provided for @projectFavorite.
+  ///
+  /// In en, this message translates to:
+  /// **'Favorite'**
+  String get projectFavorite;
+
+  /// No description provided for @projectUnfavorite.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove favorite'**
+  String get projectUnfavorite;
+
+  /// No description provided for @batchTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Batch convert'**
+  String get batchTitle;
+
+  /// No description provided for @batchSelect.
+  ///
+  /// In en, this message translates to:
+  /// **'Select items'**
+  String get batchSelect;
+
+  /// No description provided for @batchRun.
+  ///
+  /// In en, this message translates to:
+  /// **'Run batch'**
+  String get batchRun;
+
+  /// No description provided for @batchRetryFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Retry failed'**
+  String get batchRetryFailed;
+
+  /// No description provided for @batchCancel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get batchCancel;
+
+  /// No description provided for @batchProgress.
+  ///
+  /// In en, this message translates to:
+  /// **'{done}/{total} done · {failed} failed'**
+  String batchProgress(int done, int total, int failed);
 }
 
 class _AppLocalizationsDelegate

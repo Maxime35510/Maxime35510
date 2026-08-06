@@ -1,9 +1,10 @@
-# Shortsmith — TikTok → YouTube Shorts Assistant
+# ShortSmith — Universal Short-Form Repurposing Assistant
 
-A personal productivity app for creators who publish the **same video twice**:
-once on TikTok, once as a YouTube Short. Shortsmith reads the metadata from one
-of **your own** TikToks, rewrites it into Shorts-ready SEO, and keeps a local
-history so you can copy it again later.
+**One video. Every platform.** A personal productivity app for creators who
+publish the **same clip** across TikTok, YouTube Shorts and Instagram Reels.
+Paste a link, ShortSmith detects the platform, and rewrites the caption into
+metadata tailored for whichever network you're publishing to next — then keeps
+a local project history you can copy or export again later.
 
 Built with Flutter, Material 3, Clean Architecture and Riverpod.
 
@@ -11,30 +12,38 @@ Built with Flutter, Material 3, Clean Architecture and Riverpod.
 
 ## What it does
 
+`Import → Detect → Transform → Review → Export`
+
 | Step | What happens |
 |---|---|
-| **Import** | Paste a link to one of your own TikToks. Metadata is read through TikTok's public **oEmbed** endpoint — the officially supported, key-less way to read a public video's caption, author and thumbnail. |
-| **Attach** | Optionally pick the `.mp4` you downloaded from your own TikTok profile, so you can preview and save it. |
-| **Prepare** | The caption is transformed into a YouTube title, description and curated hashtags. Every field is editable. |
-| **Copy** | One tap for the title, the description, the hashtags, or all three formatted together. |
-| **Save** | Copy the video into the app's storage folder, with live progress. |
-| **History** | Everything is stored locally and survives restarts. Search by caption, title or hashtag. |
+| **Detect** | Paste a TikTok, YouTube Shorts or Instagram Reels link into one universal field. A secure detector recognises the platform (HTTPS-only, exact-host allow-list, deceptive-domain rejection) and normalises the URL. |
+| **Adapt** | The destination defaults to the obvious other network, and you can switch to any of the other two. All six source→destination directions are supported. |
+| **Transform** | Three destination-specific strategies build platform-shaped metadata: YouTube (title + description + hashtags), TikTok (caption + hashtags), Instagram (hook + caption + hashtags). Three tones — Search / Catchy / Minimal. |
+| **Review** | Every field is editable, regenerable and copyable. Attach your own clean original video, preview it with safe-zone overlays, and read a pre-export checklist. |
+| **Export** | Copy, share to the OS share sheet, save the video, export a complete package (`title.txt`, `caption.txt`, `metadata.json`, …) or a single ZIP. |
+| **Projects & batch** | Every conversion is stored locally and searchable. Batch-convert many projects to one destination with controlled concurrency and failure isolation. |
+
+### Presets & personalisation
+
+Preferred/excluded hashtags, a custom capitalization dictionary (`asmr → ASMR`),
+and eight starter presets (Miniature ASMR, Model Cars, Vehicle Build, Unboxing,
+Construction Equipment, Satisfying, Educational, General Creator).
 
 ### How it stays within the rules
 
-Shortsmith never downloads other people's content and never touches a private
-API. It reads public metadata through TikTok's documented oEmbed endpoint, and
-video files come from **your own device** — the ones TikTok lets you save from
-your own profile. That is the entire network surface: one `GET` to
-`https://www.tiktok.com/oembed`.
+ShortSmith never downloads other people's content and never touches a private
+API. TikTok captions are read through TikTok's documented public **oEmbed**
+endpoint; for other platforms you paste or type the caption. Video files come
+from **your own device**.
 
 It does **not** download watermark-free videos: when only metadata is available
 it asks you to attach your own clean original file. There is no account and no
 login — the app never asks for, and never stores, social-media passwords,
-cookies or session tokens. An in-app **Privacy** screen (Settings → Privacy)
-states this plainly, and an **About** screen credits the author with their
-public links. File access uses the Android **Storage Access Framework** via
-`file_selector`; no unnecessary permissions are requested.
+cookies or session tokens, and it never scrapes private APIs or evades platform
+protections. An in-app **Privacy** screen (Settings → Privacy) states this
+plainly, and an **About** screen credits the author with their public links.
+File access uses the Android **Storage Access Framework** via `file_selector`;
+no unnecessary permissions are requested.
 
 ---
 
@@ -131,11 +140,16 @@ lib/
 │   └── widgets/                #   The shared component library
 ├── features/
 │   ├── about/                  # About screen (author + links)
-│   ├── history/                # Local store of imported videos
-│   ├── home/                   # Landing screen
-│   ├── import/                 # Link + file import, TikTok oEmbed
-│   ├── seo/                    # The metadata engine and its editor
-│   └── settings/               # Preferences + privacy screen
+│   ├── batch/                  # Batch runner + multi-select batch screen
+│   ├── convert/                # Universal convert flow (detect→transform→export)
+│   ├── export/                 # Package builder, ZIP, validator, safe zones
+│   ├── history/                # Projects store + Projects screen
+│   ├── home/                   # Universal home + link detection UI
+│   ├── import/                 # TikTok oEmbed data source (caption fetch)
+│   ├── platform/               # SocialPlatform + secure LinkDetector
+│   ├── seo/                    # The metadata engine (shared analysis)
+│   ├── settings/               # Preferences + privacy screen
+│   └── transform/              # Output strategies, presets, dictionary
 └── l10n/                       # ARB files (en, fr) + generated delegates
 ```
 
@@ -202,7 +216,7 @@ flutter gen-l10n
 
 ```bash
 flutter analyze     # must report "No issues found!"
-flutter test        # 81 tests
+flutter test        # 144 tests
 ```
 
 ---

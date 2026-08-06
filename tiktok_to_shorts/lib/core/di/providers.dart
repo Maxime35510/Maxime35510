@@ -20,9 +20,11 @@ import '../../features/import/domain/repositories/tiktok_repository.dart';
 import '../../features/settings/data/repositories/settings_repository_impl.dart';
 import '../../features/settings/domain/repositories/settings_repository.dart';
 import '../../features/settings/presentation/viewmodels/settings_controller.dart';
+import '../../features/export/data/services/export_service.dart';
 import '../network/dio_client.dart';
 import '../services/clipboard_service.dart';
 import '../services/file_picker_service.dart';
+import '../services/share_service.dart';
 import '../services/video_storage_service.dart';
 
 // ---------------------------------------------------------------------------
@@ -104,3 +106,12 @@ final videoStorageServiceProvider = Provider<VideoStorageService>((ref) {
   );
   return LocalVideoStorageService(overrideDirectoryPath: directory);
 });
+
+final shareServiceProvider = Provider<ShareService>(
+  (ref) => const PlatformShareService(),
+);
+
+/// Writes export packages and ZIPs; follows the active storage folder.
+final exportServiceProvider = Provider<ExportService>(
+  (ref) => LocalExportService(ref.watch(videoStorageServiceProvider)),
+);

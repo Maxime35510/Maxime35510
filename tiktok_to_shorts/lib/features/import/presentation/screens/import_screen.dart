@@ -76,8 +76,9 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
 
     if (!mounted) return;
     final failure = ref.read(importControllerProvider).failure;
-    if (failure != null)
+    if (failure != null) {
       AppFeedback.showFailure(context, failure, onRetry: _import);
+    }
   }
 
   Future<void> _pickFile() async {

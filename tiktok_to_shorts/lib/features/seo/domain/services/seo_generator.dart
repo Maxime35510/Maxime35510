@@ -68,6 +68,28 @@ abstract final class SeoGenerator {
     );
   }
 
+  /// The reusable, platform-agnostic analysis of a caption.
+  ///
+  /// This exposes the shared building blocks — the descriptive subject (in
+  /// both title and sentence casing), the inferred [SeoCategory], and the
+  /// curated hashtags — so the multi-platform transform strategies can each
+  /// assemble their own output from the same content, instead of re-parsing.
+  static CaptionAnalysis analyze(
+    String? caption, {
+    SeoOptions options = const SeoOptions(),
+  }) {
+    final parsed = CaptionParser.parse(caption);
+    final hashtags = HashtagCurator.curate(parsed.hashtags, options: options);
+    final category = _resolveCategory(hashtags, parsed.body);
+    final subject = _buildSubject(parsed, hashtags, options);
+    return CaptionAnalysis(
+      subjectDisplay: subject.display,
+      subjectSentence: subject.sentence,
+      category: category,
+      hashtags: hashtags,
+    );
+  }
+
   // ---------------------------------------------------------------------
   // Category
   // ---------------------------------------------------------------------
@@ -334,6 +356,28 @@ abstract final class SeoGenerator {
         'Watch this ${subject.sentence}.',
         SeoConstants.maxDescriptionLength,
       );
+}
+
+/// The shared, platform-agnostic result of [SeoGenerator.analyze].
+final class CaptionAnalysis {
+  const CaptionAnalysis({
+    required this.subjectDisplay,
+    required this.subjectSentence,
+    required this.category,
+    required this.hashtags,
+  });
+
+  /// Title-cased subject, e.g. `Miniature Ferrari Assembly`.
+  final String subjectDisplay;
+
+  /// Sentence-cased subject, e.g. `miniature Ferrari assembly`.
+  final String subjectSentence;
+
+  /// The inferred content category, driving hooks and openers.
+  final SeoCategory category;
+
+  /// Curated hashtags (reach-bait removed), without the leading `#`.
+  final List<String> hashtags;
 }
 
 /// The descriptive core of a caption, in both the casing a title needs and

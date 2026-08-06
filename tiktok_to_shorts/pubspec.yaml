@@ -42,6 +42,17 @@ dependencies:
   intl: ^0.20.2
   file_selector: ^1.1.0
 
+  # --- Packaging (pure Dart, no native code) --------------------------------
+  # ZIP export of a project's metadata + optional media. Chosen because it is
+  # platform-channel-free, so it adds no Android permissions.
+  archive: ^4.0.0
+
+  # --- Sharing --------------------------------------------------------------
+  # Android Share Sheet (ACTION_SEND) for metadata text and exported files.
+  # Uses no storage permission — it hands a FileProvider URI to the OS.
+  share_plus: ^12.0.0
+  path: ^1.9.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

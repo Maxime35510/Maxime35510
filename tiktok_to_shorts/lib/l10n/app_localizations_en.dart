@@ -441,4 +441,199 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get openSettings => 'Open settings';
+
+  @override
+  String get homeTagline => 'One video. Every platform.';
+
+  @override
+  String get homeUniversalHint =>
+      'Paste a TikTok, YouTube Shorts, or Instagram Reels link';
+
+  @override
+  String get detectTikTok => 'TikTok detected';
+
+  @override
+  String get detectYouTube => 'YouTube detected';
+
+  @override
+  String get detectInstagram => 'Instagram detected';
+
+  @override
+  String get detectInvalid => 'Invalid or unsupported link';
+
+  @override
+  String get homeDestination => 'Destination';
+
+  @override
+  String get homeQuickConvert => 'Quick Convert';
+
+  @override
+  String get homeImportLocalVideo => 'Import local video';
+
+  @override
+  String get homeRecentProjects => 'Recent projects';
+
+  @override
+  String get homeSeeAll => 'See all';
+
+  @override
+  String get convertTitle => 'Convert';
+
+  @override
+  String get convertReview => 'Review';
+
+  @override
+  String get convertSourceCaption => 'Source caption';
+
+  @override
+  String get convertSourceCaptionHint =>
+      'Paste or type the caption to transform';
+
+  @override
+  String get convertFetchCaption => 'Fetch caption';
+
+  @override
+  String get convertNoOutput => 'Add a source caption to generate metadata.';
+
+  @override
+  String get convertCaptionLabel => 'Caption';
+
+  @override
+  String get convertHookLabel => 'Opening hook';
+
+  @override
+  String convertFrom(String platform) {
+    return 'From $platform';
+  }
+
+  @override
+  String get convertPreset => 'Preset';
+
+  @override
+  String get convertPresetNone => 'None';
+
+  @override
+  String get convertDictionary => 'Smart capitalization';
+
+  @override
+  String get convertDictionaryBody =>
+      'Fixes casing like asmr → ASMR, iphone → iPhone.';
+
+  @override
+  String get missingVideoTitle =>
+      'Metadata was imported successfully, but no local video file is attached.';
+
+  @override
+  String get missingVideoSelect => 'Select original video';
+
+  @override
+  String get missingVideoContinue => 'Continue with metadata only';
+
+  @override
+  String get attachVideo => 'Attach original video';
+
+  @override
+  String get videoFileName => 'File';
+
+  @override
+  String get videoFileSize => 'Size';
+
+  @override
+  String get videoResolution => 'Resolution';
+
+  @override
+  String get videoDuration => 'Duration';
+
+  @override
+  String get videoAspect => 'Aspect ratio';
+
+  @override
+  String get safeZones => 'Safe zones';
+
+  @override
+  String get safeZonesBody =>
+      'Approximate areas each app covers with its own controls.';
+
+  @override
+  String get exportSection => 'Export & share';
+
+  @override
+  String get exportShareMetadata => 'Share metadata';
+
+  @override
+  String get exportShareVideo => 'Share video';
+
+  @override
+  String get exportPackage => 'Export package';
+
+  @override
+  String get exportZip => 'Export ZIP';
+
+  @override
+  String exportDone(String path) {
+    return 'Exported to $path';
+  }
+
+  @override
+  String get shareNoVideo => 'Attach a video first to share it.';
+
+  @override
+  String get validationTitle => 'Before you export';
+
+  @override
+  String get valVideoMissing =>
+      'No video attached — you can still export metadata only.';
+
+  @override
+  String get valLowResolution =>
+      'Low resolution — below 720p on the short side.';
+
+  @override
+  String get valNotVertical =>
+      'Not vertical — a 9:16 clip fills the screen best.';
+
+  @override
+  String get valTooLong => 'Longer than 3 minutes — trim for Shorts and Reels.';
+
+  @override
+  String get valDuplicateHashtags => 'Duplicate hashtags detected.';
+
+  @override
+  String get valUnsupportedFile => 'Unsupported file type.';
+
+  @override
+  String get valNoMetadata => 'No metadata generated yet.';
+
+  @override
+  String get valWatermarkReminder =>
+      'Check the video for a burned-in watermark before publishing.';
+
+  @override
+  String get projectsTitle => 'Projects';
+
+  @override
+  String get projectFavorite => 'Favorite';
+
+  @override
+  String get projectUnfavorite => 'Remove favorite';
+
+  @override
+  String get batchTitle => 'Batch convert';
+
+  @override
+  String get batchSelect => 'Select items';
+
+  @override
+  String get batchRun => 'Run batch';
+
+  @override
+  String get batchRetryFailed => 'Retry failed';
+
+  @override
+  String get batchCancel => 'Cancel';
+
+  @override
+  String batchProgress(int done, int total, int failed) {
+    return '$done/$total done · $failed failed';
+  }
 }
