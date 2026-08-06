@@ -542,7 +542,7 @@ public class WarmupService extends AccessibilityService implements OverlayContro
         if (lastMatch == Behavior.Match.YES && behavior.shouldSwipeBack()) {
             ActionLog.add("rewatch", "", false);
             swipe(false);
-            later(behavior.between(3000, 8000), new Runnable() {
+            later(behavior.between(2000, 5000), new Runnable() {
                 @Override public void run() { swipe(true); afterSwipe(); }
             });
             return;
@@ -552,7 +552,7 @@ public class WarmupService extends AccessibilityService implements OverlayContro
     }
 
     private void afterSwipe() {
-        later(behavior.between(600, 1100), new Runnable() {
+        later(behavior.between(250, 600), new Runnable() {
             @Override public void run() { loop(); }
         });
     }
@@ -995,7 +995,8 @@ public class WarmupService extends AccessibilityService implements OverlayContro
         p.moveTo(cx, y1);
         p.quadTo(cx + jitter(screenW * 0.10f), (y1 + y2) / 2f,
                  cx + jitter(screenW * 0.05f), y2);
-        dispatch(p, behavior.between(160, 340));
+        // A TikTok flick is fast - 160-340ms read as a slow deliberate drag.
+        dispatch(p, behavior.between(70, 160));
     }
 
     private void tap(float x, float y) {

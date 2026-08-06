@@ -18,30 +18,34 @@ import java.util.Random;
 public final class Behavior {
 
     // -- non-matching: skip fast, engage never --------------------------
-    static final double NM_INSTANT = 0.85;
-    static final int NM_MIN = 900,  NM_MAX = 2400;
-    static final int NM_SOFT_MIN = 2800, NM_SOFT_MAX = 5200;
+    static final double NM_INSTANT = 0.90;
+    static final int NM_MIN = 600,  NM_MAX = 1500;
+    static final int NM_SOFT_MIN = 1800, NM_SOFT_MAX = 3200;
 
-    // -- matching: watch properly ---------------------------------------
-    static final double M_BOUNCE = 0.12;                 // didn't grab them after all
-    static final int M_BOUNCE_MIN = 3000, M_BOUNCE_MAX = 6000;
-    static final double M_FULL = 0.40;                   // watched to the end
-    static final int M_FULL_MIN = 20000, M_FULL_MAX = 50000;
-    static final double M_REWATCH = 0.45;                // and looped it
-    static final double M_LN_MU = 9.55, M_LN_SIGMA = 0.42;   // median ~14s
-    static final int M_MIN = 5000, M_MAX = 34000;
+    // -- matching: watch properly, but people are quick ------------------
+    // The first pass here modelled an idealised superfan: a 26s mean with 45% of
+    // videos watched to the end. Nobody watches like that, even on content they like.
+    // Retuned to a 9.9s mean / 8.0s median, with the long tail kept for the ones that
+    // genuinely hold attention.
+    static final double M_BOUNCE = 0.24;                 // didn't grab them after all
+    static final int M_BOUNCE_MIN = 2200, M_BOUNCE_MAX = 4800;
+    static final double M_FULL = 0.16;                   // watched right through
+    static final int M_FULL_MIN = 14000, M_FULL_MAX = 30000;
+    static final double M_REWATCH = 0.22;                // and looped it
+    static final double M_LN_MU = 9.16, M_LN_SIGMA = 0.40;   // median ~9.5s
+    static final int M_MIN = 3500, M_MAX = 21000;
 
     /** Attention still fades across a session, just less steeply on liked content. */
     static final double DECAY_AT_END = 0.80;
 
     // -- dwell gates. Eligibility is measured against the *matched*
     //    distribution; see tools/behavior.js.
-    public static final int GATE_LIKE   = 5000;   public static final double ELIG_LIKE   = 0.920;
-    public static final int GATE_SAVE   = 12000;  public static final double ELIG_SAVE   = 0.663;
-    public static final int GATE_COMM   = 4000;   public static final double ELIG_COMM   = 0.960;
-    public static final int GATE_PROF   = 8000;   public static final double ELIG_PROF   = 0.812;
-    public static final int GATE_REPOST = 15000;  public static final double ELIG_REPOST = 0.564;
-    public static final int GATE_FOLLOW = 15000;  public static final double ELIG_FOLLOW = 0.564;
+    public static final int GATE_LIKE   = 3000;   public static final double ELIG_LIKE   = 0.926;
+    public static final int GATE_SAVE   = 7000;   public static final double ELIG_SAVE   = 0.573;
+    public static final int GATE_COMM   = 2200;   public static final double ELIG_COMM   = 1.000;
+    public static final int GATE_PROF   = 5000;   public static final double ELIG_PROF   = 0.704;
+    public static final int GATE_REPOST = 9000;   public static final double ELIG_REPOST = 0.429;
+    public static final int GATE_FOLLOW = 9000;   public static final double ELIG_FOLLOW = 0.429;
 
     static final double MICRO_PAUSE_P = 0.040;
     static final int MICRO_PAUSE_MIN = 8000, MICRO_PAUSE_MAX = 70000;
@@ -57,7 +61,7 @@ public final class Behavior {
     public enum Match { YES, NO, UNKNOWN }
 
     static final double UNKNOWN_SCALE = 0.30;
-    static final int UNKNOWN_MIN = 4000, UNKNOWN_MAX = 14000;
+    static final int UNKNOWN_MIN = 2500, UNKNOWN_MAX = 9000;
 
     /** Everything the level slider drives, per 100 matched videos. */
     public static final class Rates {
@@ -141,9 +145,9 @@ public final class Behavior {
 
     /** Not our niche: get past it the way a person flicks past something dull. */
     private int skimWatch() {
-        double instant = aggressive ? 0.95 : NM_INSTANT;
-        int lo = aggressive ? 700 : NM_MIN;
-        int hi = aggressive ? 1600 : NM_MAX;
+        double instant = aggressive ? 0.96 : NM_INSTANT;
+        int lo = aggressive ? 450 : NM_MIN;
+        int hi = aggressive ? 1000 : NM_MAX;
         if (rnd.nextDouble() < instant) return lo + rnd.nextInt(hi - lo + 1);
         return NM_SOFT_MIN + rnd.nextInt(NM_SOFT_MAX - NM_SOFT_MIN + 1);
     }
@@ -158,7 +162,7 @@ public final class Behavior {
         if (r < M_BOUNCE + M_FULL) {
             int base = M_FULL_MIN + rnd.nextInt(M_FULL_MAX - M_FULL_MIN + 1);
             if (rnd.nextDouble() < M_REWATCH) {
-                base = (int) (base * (1.5 + rnd.nextDouble() * 1.3));
+                base = (int) (base * (1.3 + rnd.nextDouble() * 0.5));
             }
             return (int) (base * decay);
         }
@@ -214,7 +218,7 @@ public final class Behavior {
 
     public int profileDwellMs() { return 3500 + rnd.nextInt(9000); }
     public int searchDwellMs()  { return 2500 + rnd.nextInt(4000); }
-    public int reactionMs()     { return 220 + rnd.nextInt(520); }
+    public int reactionMs()     { return 140 + rnd.nextInt(320); }
     public int between(int min, int max) { return min + rnd.nextInt(max - min + 1); }
     public double next()        { return rnd.nextDouble(); }
 }

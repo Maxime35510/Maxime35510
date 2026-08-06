@@ -425,13 +425,13 @@ public class MainActivity extends Activity {
         updateGapLabel();
 
         LinearLayout rt = card(root, "Rates per 100 niche videos");
-        addRate(rt, "Likes",            Prefs.R_LIKE,    "after 5s · max 92");
-        addRate(rt, "Saves",            Prefs.R_SAVE,    "after 12s · max 66");
-        addRate(rt, "Comment sections", Prefs.R_COMMENT, "after 4s · max 96");
+        addRate(rt, "Likes",            Prefs.R_LIKE,    "after 3s · max 92");
+        addRate(rt, "Saves",            Prefs.R_SAVE,    "after 7s · max 57");
+        addRate(rt, "Comment sections", Prefs.R_COMMENT, "after 2s · max 100");
         addRate(rt, "Comment likes",    Prefs.R_CLIKE,   "while open");
-        addRate(rt, "Creator profiles", Prefs.R_PROFILE, "after 8s · max 81");
-        addRate(rt, "Follows",          Prefs.R_FOLLOW,  "strong signal, keep low");
-        addRate(rt, "Reposts",          Prefs.R_REPOST,  "posts to your followers");
+        addRate(rt, "Creator profiles", Prefs.R_PROFILE, "after 5s · max 70");
+        addRate(rt, "Follows",          Prefs.R_FOLLOW,  "after 9s · strong signal");
+        addRate(rt, "Reposts",          Prefs.R_REPOST,  "after 9s · posts to your followers");
         addRate(rt, "Re-watches",       Prefs.R_REWATCH, "swipe back");
         rateSummary = new TextView(this);
         Theme.style(rateSummary, 11f, Theme.ACCENT_A, false);
@@ -562,7 +562,8 @@ public class MainActivity extends Activity {
     private void updateRateSummary() {
         if (rateSummary == null || durationInput == null) return;
         int mins = parseInt(durationInput.getText().toString(), 25);
-        int videos = (int) (mins * 60 / 11.0);
+        // Blended cycle: mostly quick skims plus the occasional proper watch.
+        int videos = (int) (mins * 60 / 6.0);
         Behavior.Rates r = prefs.rates();
         rateSummary.setText("~" + videos + " videos a session · of the niche ones, ~"
                 + Math.round(r.like / 100f * videos) + " likes, ~"
