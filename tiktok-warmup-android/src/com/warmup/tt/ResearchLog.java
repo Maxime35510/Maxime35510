@@ -201,7 +201,8 @@ public final class ResearchLog {
                 while (j < caption.length()
                         && (Character.isLetterOrDigit(caption.charAt(j))
                             || caption.charAt(j) == '_')) j++;
-                if (j > i + 1) out.add(caption.substring(i, j).toLowerCase());
+                // "#a" is noise - require a real word
+                if (j - i >= 4) out.add(caption.substring(i, j).toLowerCase());
                 i = j;
             } else i++;
         }

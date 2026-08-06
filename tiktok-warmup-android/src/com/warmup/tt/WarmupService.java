@@ -58,6 +58,10 @@ public class WarmupService extends AccessibilityService implements OverlayContro
     private String lastText = "";
     private int unreadable = 0, forcedMatch = 0;
     private boolean inSearchFeed = false;
+    /** Rolling window - the current state of the feed, not the session average. */
+    private final boolean[] recent = new boolean[40];
+    private int recentIdx = 0, recentN = 0;
+    private long pauseStart = 0;
 
     private int screenW = 1080, screenH = 2400;
 
@@ -166,11 +170,19 @@ public class WarmupService extends AccessibilityService implements OverlayContro
         }, delay);
     }
 
+    /** Explicit stop: end the session and take the bubble away. */
+    public void stopAll(String reason) {
+        stopSession(reason);
+        if (overlay != null) overlay.hide();
+    }
+
     public void stopSession(String reason) {
         boolean was = running;
         if (was) ActionLog.add("session", "stopped (" + reason + ")", false);
         running = false;
         paused = userPaused = false;
+        pauseStart = 0;
+        recentIdx = recentN = 0;
         handler.removeCallbacksAndMessages(null);
         beat.removeCallbacks(heartbeat);
         if (overlay != null && overlay.isShown()) {
@@ -198,12 +210,18 @@ public class WarmupService extends AccessibilityService implements OverlayContro
         startSession(prefs.duration(), 3);
     }
 
-    @Override public void onOverlayStop()    { stopSession("bubble"); }
+    @Override public void onOverlayStop()    { stopAll("stopped from bubble"); }
     @Override public void onOverlayDismiss() { disarm(); }
 
     @Override public void onOverlayPause() {
         if (!running) return;
         userPaused = !userPaused;
+        if (userPaused) {
+            pauseStart = System.currentTimeMillis();
+        } else if (pauseStart > 0) {
+            endTime += System.currentTimeMillis() - pauseStart;   // give the time back
+            pauseStart = 0;
+        }
         ActionLog.add(userPaused ? "paused" : "resumed", "by you", false);
         if (overlay != null) overlay.setPaused(userPaused);
         if (!userPaused) loop();
@@ -230,9 +248,36 @@ public class WarmupService extends AccessibilityService implements OverlayContro
     public String  lastText()       { return lastText; }
     public int     unreadableRun()  { return unreadable; }
 
+    /** Frozen while paused, so the countdown stays honest. */
     public long remainingMs() {
-        long r = endTime - System.currentTimeMillis();
+        long now = userPaused && pauseStart > 0 ? pauseStart : System.currentTimeMillis();
+        long r = endTime - now;
         return r > 0 ? r : 0;
+    }
+
+    public long elapsedMs() {
+        long now = userPaused && pauseStart > 0 ? pauseStart : System.currentTimeMillis();
+        long e = now - startTime;
+        return e > 0 ? e : 0;
+    }
+
+    private void pushMatch(boolean m) {
+        recent[recentIdx] = m;
+        recentIdx = (recentIdx + 1) % recent.length;
+        if (recentN < recent.length) recentN++;
+    }
+
+    /** Share of the last 40 *For You* videos that matched - search results excluded. */
+    public int rollingPercent() {
+        if (recentN == 0) return 0;
+        int c = 0;
+        for (int i = 0; i < recentN; i++) if (recent[i]) c++;
+        return c * 100 / recentN;
+    }
+
+    /** Below target, the bot pushes harder: more searching, faster skipping. */
+    public boolean belowTarget() {
+        return recentN >= 8 && rollingPercent() < prefs.nicheTarget();
     }
 
     private double progress() {
@@ -264,14 +309,14 @@ public class WarmupService extends AccessibilityService implements OverlayContro
         long s = remainingMs() / 1000;
         String time = String.format("%d:%02d", s / 60, s % 60);
         if (overlay != null && overlay.isShown()) {
-            overlay.updateStats(time, videoCount, matchedPercent(),
+            overlay.updateStats(time, videoCount, rollingPercent(), prefs.nicheTarget(),
                     detected, lastAction, lastMatch == Behavior.Match.YES, countsLine());
         }
         long now = System.currentTimeMillis();
         if (now - lastNotify > 2500) {
             lastNotify = now;
             notify(isPaused() ? "Boost paused" : "Boost running",
-                    videoCount + " videos - " + matchedPercent() + "% niche - " + time);
+                    videoCount + " videos - " + rollingPercent() + "% niche - " + time);
         }
     }
 
@@ -352,8 +397,8 @@ public class WarmupService extends AccessibilityService implements OverlayContro
             sinceSearch = 0;
             // A cold feed needs searching far more often - it is the fastest way to get
             // niche content in front of the account at all.
-            boolean cold = videoCount > 12 && matchedPercent() < 20;
-            nextSearchAt = cold ? behavior.between(6, 12) : behavior.between(18, 40);
+            nextSearchAt = belowTarget() ? behavior.between(4, 9)
+                                         : behavior.between(16, 34);
             nicheSearch(st);
             return;
         }
@@ -379,8 +424,10 @@ public class WarmupService extends AccessibilityService implements OverlayContro
         long likeCount = st.likeCount();
 
         final Behavior.Match match;
+        boolean fromSearch = false;
         if (forcedMatch > 0) {
             forcedMatch--;                       // came from a niche search
+            fromSearch = true;
             match = Behavior.Match.YES;
         } else if (niche.isEmpty()) {
             match = Behavior.Match.YES;
@@ -393,6 +440,11 @@ public class WarmupService extends AccessibilityService implements OverlayContro
         }
         lastMatch = match;
         if (match == Behavior.Match.YES) matchedCount++;
+        // Only real For You videos count toward the score. Search results are matches
+        // by construction, so counting them would let the number climb to target
+        // without your actual feed improving - measuring the push, not the result.
+        if (!fromSearch) pushMatch(match == Behavior.Match.YES);
+        behavior.setAggressive(belowTarget());
 
         if (prefs.research()) {
             research.record(row[0], row[1], row[2], likeCount,
@@ -701,7 +753,9 @@ public class WarmupService extends AccessibilityService implements OverlayContro
         }
         ActionLog.add("search", "opening results", false);
         tapItem(first);
-        forcedMatch = behavior.between(4, 9);
+        // Behind target, stay in the search feed longer - it is the only place every
+        // video is guaranteed to be on-niche.
+        forcedMatch = belowTarget() ? behavior.between(8, 16) : behavior.between(4, 9);
         inSearchFeed = true;
 
         later(behavior.between(1400, 2400), new Runnable() {

@@ -30,23 +30,25 @@ import java.util.Map;
 
 public class MainActivity extends Activity {
 
-    private static final int START_DELAY_SECONDS = 4;
-
     private Prefs prefs;
     private final Handler ui = new Handler(Looper.getMainLooper());
 
-    private TextView bigButton, statusLine, subStatus, feedView, researchView,
-                     statsView, serviceWarn, levelLabel, levelDesc, rateSummary,
-                     nicheStatus, durationNote, diagView;
+    private TextView bigButton, statusLine, subStatus, serviceWarn;
+    private TextView nicheNow, nicheCaption, targetLabel;
+    private View barFill, barRest;
+    private SeekBar targetBar, levelBar;
+    private TextView levelLabel, levelDesc, rateSummary, nicheStatus, durationNote;
+    private TextView feedView, diagView, statsView, researchView;
     private EditText durationInput, nicheInput;
-    private SeekBar levelBar;
+    private LinearLayout advancedBody;
+    private TextView advancedToggle;
     private final Map<String, EditText> rateInputs = new LinkedHashMap<String, EditText>();
-    private boolean suppressRateWatch = false;
+    private boolean suppressRateWatch = false, advancedOpen = false;
 
     private final Runnable poll = new Runnable() {
         @Override public void run() {
             refresh();
-            ui.postDelayed(this, 1200L);
+            ui.postDelayed(this, 1000L);
         }
     };
 
@@ -61,21 +63,20 @@ public class MainActivity extends Activity {
 
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        int p = Theme.dp(this, 18);
-        root.setPadding(p, Theme.dp(this, 26), p, Theme.dp(this, 44));
+        int p = Theme.dp(this, 16);
+        root.setPadding(p, Theme.dp(this, 24), p, Theme.dp(this, 44));
         scroll.addView(root, new ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
         buildHeader(root);
         buildServiceWarning(root);
+        buildProgress(root);
         buildControl(root);
         buildNiche(root);
         buildLevel(root);
-        buildRates(root);
         buildSession(root);
-        buildOptions(root);
+        buildAdvanced(root);
         buildLiveFeed(root);
-        buildDiagnostics(root);
         buildStats(root);
         buildResearch(root);
         buildCredits(root);
@@ -92,21 +93,16 @@ public class MainActivity extends Activity {
     private void buildHeader(LinearLayout root) {
         TextView t = new TextView(this);
         t.setText("TikTok Boost");
-        t.setTextSize(32f);
+        t.setTextSize(30f);
         t.setTextColor(Theme.TEXT);
         t.setTypeface(t.getTypeface(), Typeface.BOLD);
+        t.setPadding(0, 0, 0, Theme.dp(this, 14));
         root.addView(t);
-
-        TextView s = new TextView(this);
-        s.setText("Niche-targeted feed training");
-        Theme.style(s, 13f, Theme.MUTED, false);
-        s.setPadding(0, Theme.dp(this, 2), 0, Theme.dp(this, 16));
-        root.addView(s);
     }
 
     private void buildServiceWarning(LinearLayout root) {
         serviceWarn = new TextView(this);
-        serviceWarn.setText("Accessibility service is off  —  tap to enable");
+        serviceWarn.setText("Accessibility service off — tap to enable");
         Theme.style(serviceWarn, 13f, 0xFF1A1200, true);
         serviceWarn.setBackground(Theme.solid(this, Theme.WARN, 12));
         int q = Theme.dp(this, 14);
@@ -118,8 +114,78 @@ public class MainActivity extends Activity {
             }
         });
         LinearLayout.LayoutParams lp = fill();
-        lp.bottomMargin = Theme.dp(this, 14);
+        lp.bottomMargin = Theme.dp(this, 12);
         root.addView(serviceWarn, lp);
+    }
+
+    // -------------------------------------------------------- niche progress
+
+    /** The number that matters: how much of the feed is now your niche. */
+    private void buildProgress(LinearLayout root) {
+        LinearLayout card = card(root, null);
+
+        nicheNow = new TextView(this);
+        nicheNow.setText("—");
+        nicheNow.setTextSize(52f);
+        nicheNow.setTextColor(Theme.TEXT);
+        nicheNow.setTypeface(nicheNow.getTypeface(), Typeface.BOLD);
+        card.addView(nicheNow, fill());
+
+        nicheCaption = new TextView(this);
+        Theme.style(nicheCaption, 12f, Theme.MUTED, false);
+        nicheCaption.setPadding(0, 0, 0, Theme.dp(this, 14));
+        card.addView(nicheCaption, fill());
+
+        // Progress track: two weighted views, filled + remainder.
+        LinearLayout track = new LinearLayout(this);
+        track.setOrientation(LinearLayout.HORIZONTAL);
+        track.setBackground(Theme.solid(this, Theme.CARD_HI, 6));
+        barFill = new View(this);
+        barFill.setBackground(Theme.accent(this, 6));
+        barRest = new View(this);
+        track.addView(barFill, new LinearLayout.LayoutParams(0,
+                Theme.dp(this, 10), 0f));
+        track.addView(barRest, new LinearLayout.LayoutParams(0,
+                Theme.dp(this, 10), 100f));
+        card.addView(track, fill());
+
+        targetLabel = new TextView(this);
+        Theme.style(targetLabel, 12f, Theme.MUTED, false);
+        targetLabel.setPadding(0, Theme.dp(this, 14), 0, Theme.dp(this, 2));
+        card.addView(targetLabel, fill());
+
+        targetBar = new SeekBar(this);
+        targetBar.setMax(90);
+        targetBar.setProgress(Math.max(0, prefs.nicheTarget() - 10));
+        tint(targetBar);
+        targetBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override public void onProgressChanged(SeekBar s, int v, boolean fromUser) {
+                if (!fromUser) return;
+                prefs.edit().putInt(Prefs.TARGET, v + 10).apply();
+                WarmupService svc = WarmupService.instance;
+                if (svc != null) svc.reload();
+                updateTargetLabel();
+            }
+            @Override public void onStartTrackingTouch(SeekBar s) { }
+            @Override public void onStopTrackingTouch(SeekBar s) { }
+        });
+        card.addView(targetBar, fill());
+        updateTargetLabel();
+    }
+
+    private void updateTargetLabel() {
+        targetLabel.setText("Target  " + prefs.nicheTarget() + "%   —  below this it "
+                + "searches more, skips faster and stays in results longer");
+    }
+
+    private void setBar(int pct, int target) {
+        int p = pct < 0 ? 0 : (pct > 100 ? 100 : pct);
+        ((LinearLayout.LayoutParams) barFill.getLayoutParams()).weight = p;
+        ((LinearLayout.LayoutParams) barRest.getLayoutParams()).weight = 100 - p;
+        barFill.setBackground(p >= target
+                ? Theme.solid(this, Theme.OK, 6) : Theme.accent(this, 6));
+        barFill.requestLayout();
+        barRest.requestLayout();
     }
 
     // --------------------------------------------------------------- control
@@ -131,14 +197,13 @@ public class MainActivity extends Activity {
         bigButton = new TextView(this);
         bigButton.setText("START");
         bigButton.setGravity(Gravity.CENTER);
-        Theme.style(bigButton, 19f, 0xFF07131A, true);
+        Theme.style(bigButton, 22f, 0xFF07131A, true);
         bigButton.setBackground(Theme.pressable(Theme.accentCircle(this)));
-        int d = Theme.dp(this, 150);
+        int d = Theme.dp(this, 146);
         LinearLayout.LayoutParams blp = new LinearLayout.LayoutParams(d, d);
-        blp.topMargin = Theme.dp(this, 4);
-        blp.bottomMargin = Theme.dp(this, 16);
+        blp.bottomMargin = Theme.dp(this, 14);
         bigButton.setOnClickListener(new View.OnClickListener() {
-            @Override public void onClick(View v) { toggleSession(); }
+            @Override public void onClick(View v) { onBigButton(); }
         });
         card.addView(bigButton, blp);
 
@@ -154,17 +219,23 @@ public class MainActivity extends Activity {
         card.addView(subStatus, fill());
     }
 
-    private void toggleSession() {
+    /** Start arms the bubble; while armed or running, this stops everything. */
+    private void onBigButton() {
         WarmupService svc = WarmupService.instance;
         if (svc == null) {
             toast("Enable the accessibility service first");
             startActivity(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS));
             return;
         }
-        if (svc.isRunning()) { svc.stopSession("user"); refresh(); return; }
+        if (svc.isRunning() || svc.isArmed()) {
+            svc.stopAll("stopped from the app");
+            toast("Stopped — bubble removed");
+            refresh();
+            return;
+        }
         persist();
         svc.arm();
-        toast("Open TikTok, then tap the pill");
+        toast("Open TikTok, then tap the bubble");
         moveTaskToBack(true);
         refresh();
     }
@@ -173,20 +244,12 @@ public class MainActivity extends Activity {
 
     private void buildNiche(LinearLayout root) {
         LinearLayout card = card(root, "Your niche");
-
-        TextView intro = new TextView(this);
-        intro.setText("Everything keys off this. Videos matching these words get watched "
-                + "properly and engaged with; everything else is skipped in a second and "
-                + "touched by nothing.\n\nEngagement that isn't niche-matched teaches "
-                + "TikTok your account is interested in something else — which is worse "
-                + "than doing nothing. Edit these and it retargets immediately.");
-        Theme.style(intro, 11f, Theme.FAINT, false);
-        intro.setPadding(0, 0, 0, Theme.dp(this, 10));
-        card.addView(intro, fill());
+        card.addView(hint("Videos matching these get watched fully and engaged with. "
+                + "Everything else is skipped. Edits apply immediately."));
 
         nicheInput = input(prefs.nicheRaw(),
                 InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_MULTI_LINE);
-        nicheInput.setMinLines(5);
+        nicheInput.setMinLines(4);
         nicheInput.setGravity(Gravity.TOP);
         card.addView(nicheInput, fill());
 
@@ -201,7 +264,7 @@ public class MainActivity extends Activity {
             @Override public void afterTextChanged(Editable e) {
                 prefs.edit().putString(Prefs.NICHE_TERMS, e.toString()).apply();
                 WarmupService svc = WarmupService.instance;
-                if (svc != null) svc.reload();       // retarget live
+                if (svc != null) svc.reload();
                 updateNicheStatus();
             }
         });
@@ -212,17 +275,16 @@ public class MainActivity extends Activity {
         Niche n = new Niche(nicheInput.getText().toString());
         if (n.isEmpty()) {
             nicheStatus.setTextColor(Theme.WARN);
-            nicheStatus.setText("No keywords — everything counts as a match, which "
-                    + "defeats the point. Add a few terms.");
+            nicheStatus.setText("No keywords — everything counts as a match. Add terms.");
             return;
         }
-        StringBuilder sb = new StringBuilder("Matching on " + n.size() + " keywords: ");
+        StringBuilder sb = new StringBuilder(n.size() + " keywords: ");
         List<String> k = n.keywords();
-        for (int i = 0; i < k.size() && i < 10; i++) {
+        for (int i = 0; i < k.size() && i < 8; i++) {
             if (i > 0) sb.append(", ");
             sb.append(k.get(i));
         }
-        if (k.size() > 10) sb.append(", +").append(k.size() - 10);
+        if (k.size() > 8) sb.append(" +").append(k.size() - 8);
         nicheStatus.setTextColor(Theme.ACCENT_A);
         nicheStatus.setText(sb.toString());
     }
@@ -233,20 +295,15 @@ public class MainActivity extends Activity {
         LinearLayout card = card(root, "Boost level");
 
         levelLabel = new TextView(this);
-        Theme.style(levelLabel, 30f, Theme.TEXT, true);
+        Theme.style(levelLabel, 28f, Theme.TEXT, true);
         card.addView(levelLabel, fill());
 
         levelBar = new SeekBar(this);
         levelBar.setMax(99);
         levelBar.setProgress(Math.max(0, prefs.level() - 1));
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            levelBar.setProgressTintList(
-                    android.content.res.ColorStateList.valueOf(Theme.ACCENT_A));
-            levelBar.setThumbTintList(
-                    android.content.res.ColorStateList.valueOf(Theme.ACCENT_B));
-        }
+        tint(levelBar);
         LinearLayout.LayoutParams slp = fill();
-        slp.topMargin = Theme.dp(this, 6);
+        slp.topMargin = Theme.dp(this, 4);
         card.addView(levelBar, slp);
 
         levelDesc = new TextView(this);
@@ -271,51 +328,89 @@ public class MainActivity extends Activity {
         int lvl = prefs.level();
         Behavior.Rates r = prefs.rates();
         levelLabel.setText(prefs.custom() ? "Custom" : String.valueOf(lvl));
-
         String band;
-        if (lvl <= 10)      band = "barely there — a lurker who almost never taps";
-        else if (lvl <= 25) band = "around the published human average";
-        else if (lvl <= 50) band = "an engaged regular in this niche";
-        else if (lvl <= 75) band = "a fan account — very active";
-        else                band = "superfan — likes most of what it sees";
-
-        levelDesc.setText(band + "\nper 100 niche videos: " + r.like + " likes, "
-                + r.save + " saves, " + r.commentOpen + " comment sections, "
-                + r.repost + " reposts, " + r.follow + " follows");
+        if (lvl <= 10)      band = "lurker";
+        else if (lvl <= 25) band = "around the human average";
+        else if (lvl <= 50) band = "engaged regular";
+        else if (lvl <= 75) band = "fan account";
+        else                band = "superfan";
+        levelDesc.setText(band + " · per 100 niche videos: " + r.like + " likes, "
+                + r.save + " saves, " + r.commentOpen + " comments, "
+                + r.follow + " follows, " + r.repost + " reposts");
     }
 
-    // ----------------------------------------------------------------- rates
+    // --------------------------------------------------------------- session
 
-    private void buildRates(LinearLayout root) {
-        LinearLayout card = card(root, "Fine tuning");
+    private void buildSession(LinearLayout root) {
+        LinearLayout card = card(root, "Session");
+        card.addView(label("Minutes"));
+        durationInput = input(String.valueOf(prefs.duration()), InputType.TYPE_CLASS_NUMBER);
+        card.addView(durationInput, fill());
 
-        TextView intro = new TextView(this);
-        intro.setText("Per 100 videos that match your niche. The slider fills these in — "
-                + "change any number and it becomes Custom.");
-        Theme.style(intro, 11f, Theme.FAINT, false);
-        intro.setPadding(0, 0, 0, Theme.dp(this, 4));
-        card.addView(intro, fill());
+        durationNote = new TextView(this);
+        Theme.style(durationNote, 11f, Theme.FAINT, false);
+        durationNote.setPadding(0, Theme.dp(this, 6), 0, 0);
+        card.addView(durationNote, fill());
+        durationInput.addTextChangedListener(new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence c,int a,int b,int d) { }
+            @Override public void onTextChanged(CharSequence c,int a,int b,int d) { }
+            @Override public void afterTextChanged(Editable e) {
+                updateDurationNote(); updateRateSummary();
+            }
+        });
+        updateDurationNote();
 
-        addRate(card, "Likes",             Prefs.R_LIKE,    "after 5s watched · max 92");
-        addRate(card, "Saves",             Prefs.R_SAVE,    "after 12s · max 66");
-        addRate(card, "Comment sections",  Prefs.R_COMMENT, "after 4s · max 96");
-        addRate(card, "Comment likes",     Prefs.R_CLIKE,   "while a sheet is open");
-        addRate(card, "Creator profiles",  Prefs.R_PROFILE, "after 8s · max 81");
-        addRate(card, "Follows",           Prefs.R_FOLLOW,  "after 15s · strong signal, keep low");
-        addRate(card, "Reposts",           Prefs.R_REPOST,  "posts to your followers");
-        addRate(card, "Re-watches",        Prefs.R_REWATCH, "swipe back and watch again");
+        card.addView(toggle("Auto sessions",
+                "Runs again by itself after 8–42 minutes.", Prefs.AUTO, true));
+    }
+
+    private void updateDurationNote() {
+        int d = parseInt(durationInput.getText().toString(), 25);
+        durationNote.setText("Runs " + Math.round(d * 0.75) + "–" + Math.round(d * 1.25)
+                + " min — never a round number.");
+    }
+
+    // -------------------------------------------------------------- advanced
+
+    private void buildAdvanced(LinearLayout root) {
+        LinearLayout card = card(root, null);
+
+        advancedToggle = new TextView(this);
+        Theme.style(advancedToggle, 13f, Theme.MUTED, true);
+        advancedToggle.setText("ADVANCED  ▾");
+        advancedToggle.setLetterSpacing(0.1f);
+        advancedToggle.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) {
+                advancedOpen = !advancedOpen;
+                advancedBody.setVisibility(advancedOpen ? View.VISIBLE : View.GONE);
+                advancedToggle.setText(advancedOpen ? "ADVANCED  ▴" : "ADVANCED  ▾");
+            }
+        });
+        card.addView(advancedToggle, fill());
+
+        advancedBody = new LinearLayout(this);
+        advancedBody.setOrientation(LinearLayout.VERTICAL);
+        advancedBody.setVisibility(View.GONE);
+        advancedBody.setPadding(0, Theme.dp(this, 8), 0, 0);
+        card.addView(advancedBody, fill());
+
+        advancedBody.addView(label("Rates per 100 niche videos"));
+        addRate(advancedBody, "Likes",            Prefs.R_LIKE,    "after 5s · max 92");
+        addRate(advancedBody, "Saves",            Prefs.R_SAVE,    "after 12s · max 66");
+        addRate(advancedBody, "Comment sections", Prefs.R_COMMENT, "after 4s · max 96");
+        addRate(advancedBody, "Comment likes",    Prefs.R_CLIKE,   "while open");
+        addRate(advancedBody, "Creator profiles", Prefs.R_PROFILE, "after 8s · max 81");
+        addRate(advancedBody, "Follows",          Prefs.R_FOLLOW,  "strong signal, keep low");
+        addRate(advancedBody, "Reposts",          Prefs.R_REPOST,  "posts to your followers");
+        addRate(advancedBody, "Re-watches",       Prefs.R_REWATCH, "swipe back");
 
         rateSummary = new TextView(this);
         Theme.style(rateSummary, 11f, Theme.ACCENT_A, false);
-        rateSummary.setPadding(0, Theme.dp(this, 14), 0, 0);
-        card.addView(rateSummary, fill());
+        rateSummary.setPadding(0, Theme.dp(this, 12), 0, 0);
+        advancedBody.addView(rateSummary, fill());
+        updateRateSummary();
 
-        TextView reset = new TextView(this);
-        reset.setText("Reset to slider");
-        reset.setGravity(Gravity.CENTER);
-        Theme.style(reset, 12f, Theme.MUTED, true);
-        reset.setPadding(0, Theme.dp(this, 11), 0, Theme.dp(this, 11));
-        reset.setBackground(Theme.pressable(Theme.card(this, Theme.CARD_HI, 10)));
+        TextView reset = actionBtn("Reset to slider", Theme.MUTED);
         reset.setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View v) {
                 prefs.applyLevel(prefs.level());
@@ -326,14 +421,34 @@ public class MainActivity extends Activity {
         });
         LinearLayout.LayoutParams rlp = fill();
         rlp.topMargin = Theme.dp(this, 12);
-        card.addView(reset, rlp);
+        advancedBody.addView(reset, rlp);
+
+        advancedBody.addView(label("Behaviour"));
+        advancedBody.addView(toggle("Niche search",
+                "Searches your terms and works the results.", Prefs.NICHE_ENABLED, true));
+        advancedBody.addView(toggle("Track my own stats",
+                "Read-only view counts from your profile.", Prefs.SELF_STATS, true));
+        advancedBody.addView(toggle("Research log",
+                "Ranks hashtags and sounds by performance.", Prefs.RESEARCH, true));
+        advancedBody.addView(toggle("Follow niche creators",
+                "Lasting interest signal. Kept low.", Prefs.FOLLOW, true));
+        advancedBody.addView(toggle("Like comments", "", Prefs.LIKE_COMMENTS, true));
+        advancedBody.addView(toggle("Repost",
+                "Posts to your followers, unreviewed.", Prefs.REPOST, false));
+        advancedBody.addView(toggle("Floating bubble", "", Prefs.OVERLAY, true));
+
+        advancedBody.addView(label("What it's reading"));
+        diagView = new TextView(this);
+        Theme.style(diagView, 11f, Theme.MUTED, false);
+        diagView.setTypeface(Typeface.MONOSPACE);
+        advancedBody.addView(diagView, fill());
     }
 
     private void addRate(LinearLayout card, String title, final String key, String hint) {
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setGravity(Gravity.CENTER_VERTICAL);
-        row.setPadding(0, Theme.dp(this, 11), 0, 0);
+        row.setPadding(0, Theme.dp(this, 10), 0, 0);
 
         LinearLayout left = new LinearLayout(this);
         left.setOrientation(LinearLayout.VERTICAL);
@@ -369,8 +484,7 @@ public class MainActivity extends Activity {
             }
         });
         row.addView(e, new LinearLayout.LayoutParams(
-                Theme.dp(this, 68), ViewGroup.LayoutParams.WRAP_CONTENT));
-
+                Theme.dp(this, 66), ViewGroup.LayoutParams.WRAP_CONTENT));
         rateInputs.put(key, e);
         card.addView(row, fill());
     }
@@ -387,73 +501,11 @@ public class MainActivity extends Activity {
     private void updateRateSummary() {
         if (rateSummary == null || durationInput == null) return;
         int mins = parseInt(durationInput.getText().toString(), 25);
-        // Matched videos are watched properly, so a session covers fewer of them.
         int videos = (int) (mins * 60 / 11.0);
         Behavior.Rates r = prefs.rates();
-        rateSummary.setText("A " + mins + " min session covers roughly " + videos
-                + " videos. Of the ones that match your niche: ~"
+        rateSummary.setText("~" + videos + " videos this session · of the niche ones, ~"
                 + Math.round(r.like / 100f * videos) + " likes, ~"
-                + Math.round(r.commentOpen / 100f * videos) + " comment sections, ~"
                 + Math.round(r.follow / 100f * videos) + " follows.");
-    }
-
-    // --------------------------------------------------------------- session
-
-    private void buildSession(LinearLayout root) {
-        LinearLayout card = card(root, "Session");
-
-        card.addView(label("Duration (minutes)"));
-        durationInput = input(String.valueOf(prefs.duration()), InputType.TYPE_CLASS_NUMBER);
-        card.addView(durationInput, fill());
-
-        durationNote = new TextView(this);
-        Theme.style(durationNote, 11f, Theme.FAINT, false);
-        durationNote.setPadding(0, Theme.dp(this, 6), 0, 0);
-        card.addView(durationNote, fill());
-        durationInput.addTextChangedListener(new TextWatcher() {
-            @Override public void beforeTextChanged(CharSequence c,int a,int b,int d) { }
-            @Override public void onTextChanged(CharSequence c,int a,int b,int d) { }
-            @Override public void afterTextChanged(Editable e) {
-                updateDurationNote(); updateRateSummary();
-            }
-        });
-        updateDurationNote();
-        updateRateSummary();
-
-        card.addView(toggle("Auto sessions", "When one finishes, wait 8–42 minutes and "
-                + "run another by itself. Several short visits a day is the human "
-                + "pattern; one long block isn't.", Prefs.AUTO, true));
-    }
-
-    private void updateDurationNote() {
-        int d = parseInt(durationInput.getText().toString(), 25);
-        durationNote.setText("Example: set " + d + " and it actually runs "
-                + Math.round(d * 0.75) + "–" + Math.round(d * 1.25)
-                + " min, picked at start. People don't stop on a round number.");
-    }
-
-    // --------------------------------------------------------------- options
-
-    private void buildOptions(LinearLayout root) {
-        LinearLayout card = card(root, "Behaviour");
-        card.addView(toggle("Niche search", "Periodically searches one of your terms and "
-                + "browses the results. Search intent is a strong signal — it's the "
-                + "fastest way to pull the For You page toward your niche.",
-                Prefs.NICHE_ENABLED, true));
-        card.addView(toggle("Track my own stats", "Visits your profile once a session and "
-                + "records each video's view count. Read-only. TikTok keeps no history, "
-                + "so this builds it.", Prefs.SELF_STATS, true));
-        card.addView(toggle("Research log", "Records creators, hashtags, sounds and their "
-                + "like counts, then ranks them.", Prefs.RESEARCH, true));
-        card.addView(toggle("Follow niche creators", "A lasting interest signal. Kept low "
-                + "on purpose — bulk following is a spam pattern.", Prefs.FOLLOW, true));
-        card.addView(toggle("Like comments", "Occasionally likes a comment while a sheet "
-                + "is open.", Prefs.LIKE_COMMENTS, true));
-        card.addView(toggle("Repost", "Off by default. Pushes a video to your followers "
-                + "under your name, picked by something that can't see it.",
-                Prefs.REPOST, false));
-        card.addView(toggle("Floating panel", "Draggable control on the left edge, where "
-                + "the bot's own taps never reach.", Prefs.OVERLAY, true));
     }
 
     // ------------------------------------------------------------- live feed
@@ -467,31 +519,6 @@ public class MainActivity extends Activity {
         card.addView(feedView, fill());
     }
 
-    // ----------------------------------------------------------- diagnostics
-
-    /**
-     * Shows the text the service is actually reading off each video. When matching
-     * silently failed, every video scored zero and the app did nothing at all with no
-     * way to see why - this makes that visible.
-     */
-    private void buildDiagnostics(LinearLayout root) {
-        LinearLayout card = card(root, "What it's reading");
-        diagView = new TextView(this);
-        Theme.style(diagView, 11f, Theme.MUTED, false);
-        diagView.setTypeface(Typeface.MONOSPACE);
-        diagView.setLineSpacing(0f, 1.25f);
-        card.addView(diagView, fill());
-
-        TextView note = new TextView(this);
-        note.setText("If the niche match rate stays at 0% and the text below is empty, "
-                + "it can't read captions on your device — tell me and I'll widen it. "
-                + "Videos it can't read are marked \"unsure\": watched a medium amount, "
-                + "engaged with at 30% of your rates rather than skipped entirely.");
-        Theme.style(note, 10f, Theme.FAINT, false);
-        note.setPadding(0, Theme.dp(this, 10), 0, 0);
-        card.addView(note, fill());
-    }
-
     // ------------------------------------------------------------ own stats
 
     private void buildStats(LinearLayout root) {
@@ -500,14 +527,8 @@ public class MainActivity extends Activity {
         Theme.style(statsView, 12f, Theme.TEXT, false);
         statsView.setLineSpacing(0f, 1.35f);
         card.addView(statsView, fill());
-
-        TextView note = new TextView(this);
-        note.setText("This is the feedback loop. Nothing the bot does moves these numbers "
-                + "directly — content and posting volume do. Use it to tell whether a "
-                + "change you made actually worked.");
-        Theme.style(note, 10f, Theme.FAINT, false);
-        note.setPadding(0, Theme.dp(this, 10), 0, 0);
-        card.addView(note, fill());
+        card.addView(hint("Content and posting volume move these, not the bot. "
+                + "Use it to tell whether a change worked."));
     }
 
     // -------------------------------------------------------------- research
@@ -527,7 +548,6 @@ public class MainActivity extends Activity {
             @Override public void onClick(View v) {
                 Intent i = new Intent(Intent.ACTION_SEND);
                 i.setType("text/plain");
-                i.putExtra(Intent.EXTRA_SUBJECT, "Niche research");
                 i.putExtra(Intent.EXTRA_TEXT,
                         researchView.getText() + "\n\n" + statsView.getText());
                 try { startActivity(Intent.createChooser(i, "Share")); }
@@ -538,7 +558,7 @@ public class MainActivity extends Activity {
             @Override public void onClick(View v) {
                 new ResearchLog(MainActivity.this).clear();
                 refresh();
-                toast("Research log cleared");
+                toast("Cleared");
             }
         });
         LinearLayout.LayoutParams a = new LinearLayout.LayoutParams(
@@ -553,16 +573,6 @@ public class MainActivity extends Activity {
         card.addView(row, rlp);
     }
 
-    private TextView actionBtn(String text, int colour) {
-        TextView t = new TextView(this);
-        t.setText(text);
-        t.setGravity(Gravity.CENTER);
-        Theme.style(t, 13f, colour, true);
-        t.setPadding(0, Theme.dp(this, 12), 0, Theme.dp(this, 12));
-        t.setBackground(Theme.pressable(Theme.card(this, Theme.CARD_HI, 10)));
-        return t;
-    }
-
     // --------------------------------------------------------------- credits
 
     private void buildCredits(LinearLayout root) {
@@ -571,35 +581,10 @@ public class MainActivity extends Activity {
         who.setText("Maxime35");
         Theme.style(who, 17f, Theme.TEXT, true);
         card.addView(who, fill());
-
-        TextView role = new TextView(this);
-        role.setText("Cybersecurity graduate, software & bot developer");
-        Theme.style(role, 12f, Theme.MUTED, false);
-        role.setPadding(0, Theme.dp(this, 2), 0, Theme.dp(this, 12));
-        card.addView(role, fill());
-
+        card.addView(hint("Cybersecurity graduate, software & bot developer"));
         card.addView(link("Website", "https://louming.dastot.net"));
         card.addView(link("LinkedIn", "https://www.linkedin.com/in/lou-ming-dastot/"));
         card.addView(link("GitHub", "https://github.com/Maxime35510"));
-    }
-
-    private TextView link(String text, final String url) {
-        TextView t = new TextView(this);
-        t.setText(text);
-        Theme.style(t, 14f, Theme.ACCENT_A, true);
-        int q = Theme.dp(this, 13);
-        t.setPadding(q, q, q, q);
-        t.setBackground(Theme.pressable(Theme.card(this, Theme.CARD_HI, 10)));
-        t.setOnClickListener(new View.OnClickListener() {
-            @Override public void onClick(View v) {
-                try { startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url))); }
-                catch (Throwable t2) { toast("No browser found"); }
-            }
-        });
-        LinearLayout.LayoutParams lp = fill();
-        lp.topMargin = Theme.dp(this, 8);
-        t.setLayoutParams(lp);
-        return t;
     }
 
     // ----------------------------------------------------------------- state
@@ -609,48 +594,65 @@ public class MainActivity extends Activity {
         boolean connected = svc != null;
         serviceWarn.setVisibility(connected ? View.GONE : View.VISIBLE);
 
+        int target = prefs.nicheTarget();
+        int now = connected && svc.isRunning() ? svc.rollingPercent()
+                                              : new ResearchLog(this).matchedPercent();
+        nicheNow.setText(now + "%");
+        nicheNow.setTextColor(now >= target ? Theme.OK : Theme.TEXT);
+        nicheCaption.setText(connected && svc.isRunning()
+                ? "of the last 40 videos matched your niche"
+                : "of everything seen so far matched your niche");
+        setBar(now, target);
+
         boolean running = connected && svc.isRunning();
-        bigButton.setText(running ? "STOP"
-                : (connected && svc.isArmed() ? "ARMED" : "START"));
-        bigButton.setBackground(Theme.pressable(
-                running ? Theme.dangerCircle(this) : Theme.accentCircle(this)));
+        boolean armed = connected && svc.isArmed();
+        boolean paused = running && svc.isPaused();
 
         if (!connected) {
+            bigButton.setText("START");
+            bigButton.setBackground(Theme.pressable(Theme.accentCircle(this)));
             statusLine.setText("Service not enabled");
-            subStatus.setText("Boost needs the accessibility service to read the screen");
-        } else if (!running) {
-            boolean armed = svc.isArmed();
-            statusLine.setText(armed ? "Armed" : "Ready");
-            subStatus.setText(armed
-                    ? "Open TikTok and tap the pill.\nLong-press it to hide."
-                    : ActionLog.summary());
+            subStatus.setText("Boost needs accessibility to read the screen");
+        } else if (running) {
+            long e = svc.elapsedMs() / 1000;
+            bigButton.setText(String.format("%d:%02d", e / 60, e % 60));
+            bigButton.setBackground(Theme.pressable(Theme.dangerCircle(this)));
+            statusLine.setText(paused ? "Paused" : "Boosting");
+            subStatus.setText(svc.videoCount() + " videos · "
+                    + (svc.remainingMs() / 60000) + " min left\n"
+                    + (paused ? "tap the bubble RESUME in TikTok"
+                              : "tap here to stop and remove the bubble"));
+        } else if (armed) {
+            bigButton.setText("ARMED");
+            bigButton.setBackground(Theme.pressable(Theme.dangerCircle(this)));
+            statusLine.setText("Waiting");
+            subStatus.setText("Open TikTok and tap the bubble\n"
+                    + "tap here to stop and remove it");
         } else {
-            long s = svc.remainingMs() / 1000;
-            statusLine.setText((svc.isPaused() ? "Paused · " : "")
-                    + String.format("%d:%02d", s / 60, s % 60) + " left");
-            subStatus.setText(svc.videoCount() + " videos · " + svc.matchedPercent()
-                    + "% niche\n" + svc.detectedScreen().toLowerCase()
-                    + " · " + svc.lastAction());
+            bigButton.setText("START");
+            bigButton.setBackground(Theme.pressable(Theme.accentCircle(this)));
+            statusLine.setText("Ready");
+            subStatus.setText(ActionLog.summary());
         }
 
         StringBuilder sb = new StringBuilder();
-        List<ActionLog.Entry> es = ActionLog.recent(14);
+        List<ActionLog.Entry> es = ActionLog.recent(12);
         for (int i = es.size() - 1; i >= 0; i--) {
-            ActionLog.Entry e = es.get(i);
-            sb.append(ActionLog.clock(e.time)).append("  ").append(e.action);
-            if (e.detail.length() > 0) sb.append("  ").append(e.detail);
+            ActionLog.Entry en = es.get(i);
+            sb.append(ActionLog.clock(en.time)).append("  ").append(en.action);
+            if (en.detail.length() > 0) sb.append("  ").append(en.detail);
             sb.append('\n');
         }
         feedView.setText(sb.length() == 0 ? "nothing yet" : sb.toString().trim());
 
-        if (svc == null) {
-            diagView.setText("service not running");
-        } else {
-            String t = svc.lastText();
-            diagView.setText("last caption read:\n"
-                    + (t == null || t.length() == 0 ? "(nothing)" : t)
-                    + "\n\nunreadable in a row: " + svc.unreadableRun()
-                    + "\nniche match rate: " + svc.matchedPercent() + "%");
+        if (advancedOpen && diagView != null) {
+            if (svc == null) diagView.setText("service not running");
+            else {
+                String t = svc.lastText();
+                diagView.setText("caption read:\n"
+                        + (t == null || t.length() == 0 ? "(nothing)" : t)
+                        + "\nunreadable run: " + svc.unreadableRun());
+            }
         }
 
         statsView.setText(new SelfStats(this).summary());
@@ -658,7 +660,7 @@ public class MainActivity extends Activity {
         ResearchLog r = new ResearchLog(this);
         StringBuilder rb = new StringBuilder();
         rb.append(r.size()).append(" videos seen · ")
-          .append(r.matchedPercent()).append("% matched your niche\n");
+          .append(r.matchedPercent()).append("% matched\n");
         appendList(rb, "Hashtags on the best niche videos", r.topHashtags(6));
         appendList(rb, "Sounds", r.topSounds(4));
         appendList(rb, "Creators worth studying", r.topAuthors(4));
@@ -683,6 +685,15 @@ public class MainActivity extends Activity {
 
     // ----------------------------------------------------------------- views
 
+    private void tint(SeekBar b) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            b.setProgressTintList(
+                    android.content.res.ColorStateList.valueOf(Theme.ACCENT_A));
+            b.setThumbTintList(
+                    android.content.res.ColorStateList.valueOf(Theme.ACCENT_B));
+        }
+    }
+
     private LinearLayout card(LinearLayout parent, String title) {
         LinearLayout c = new LinearLayout(this);
         c.setOrientation(LinearLayout.VERTICAL);
@@ -698,15 +709,24 @@ public class MainActivity extends Activity {
             c.addView(t);
         }
         LinearLayout.LayoutParams lp = fill();
-        lp.bottomMargin = Theme.dp(this, 14);
+        lp.bottomMargin = Theme.dp(this, 12);
         parent.addView(c, lp);
         return c;
+    }
+
+    private TextView hint(String text) {
+        TextView t = new TextView(this);
+        t.setText(text);
+        Theme.style(t, 11f, Theme.FAINT, false);
+        t.setPadding(0, Theme.dp(this, 4), 0, Theme.dp(this, 10));
+        t.setLayoutParams(fill());
+        return t;
     }
 
     private View toggle(String title, String desc, final String key, boolean def) {
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.VERTICAL);
-        row.setPadding(0, Theme.dp(this, 12), 0, 0);
+        row.setPadding(0, Theme.dp(this, 10), 0, 0);
 
         LinearLayout top = new LinearLayout(this);
         top.setOrientation(LinearLayout.HORIZONTAL);
@@ -735,21 +755,46 @@ public class MainActivity extends Activity {
         top.addView(sw);
         row.addView(top, fill());
 
-        if (desc != null) {
+        if (desc != null && desc.length() > 0) {
             TextView d = new TextView(this);
             d.setText(desc);
             Theme.style(d, 11f, Theme.FAINT, false);
-            d.setPadding(0, Theme.dp(this, 2), Theme.dp(this, 48), 0);
+            d.setPadding(0, Theme.dp(this, 1), Theme.dp(this, 48), 0);
             row.addView(d, fill());
         }
         return row;
+    }
+
+    private TextView actionBtn(String text, int colour) {
+        TextView t = new TextView(this);
+        t.setText(text);
+        t.setGravity(Gravity.CENTER);
+        Theme.style(t, 13f, colour, true);
+        t.setPadding(0, Theme.dp(this, 12), 0, Theme.dp(this, 12));
+        t.setBackground(Theme.pressable(Theme.card(this, Theme.CARD_HI, 10)));
+        return t;
+    }
+
+    private TextView link(String text, final String url) {
+        TextView t = actionBtn(text, Theme.ACCENT_A);
+        t.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) {
+                try { startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url))); }
+                catch (Throwable t2) { toast("No browser found"); }
+            }
+        });
+        LinearLayout.LayoutParams lp = fill();
+        lp.topMargin = Theme.dp(this, 8);
+        t.setLayoutParams(lp);
+        return t;
     }
 
     private TextView label(String text) {
         TextView t = new TextView(this);
         t.setText(text);
         Theme.style(t, 12f, Theme.MUTED, false);
-        t.setPadding(0, Theme.dp(this, 8), 0, Theme.dp(this, 6));
+        t.setPadding(0, Theme.dp(this, 12), 0, Theme.dp(this, 4));
+        t.setLayoutParams(fill());
         return t;
     }
 
@@ -770,7 +815,7 @@ public class MainActivity extends Activity {
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
     }
 
-    private void toast(String m) { Toast.makeText(this, m, Toast.LENGTH_LONG).show(); }
+    private void toast(String m) { Toast.makeText(this, m, Toast.LENGTH_SHORT).show(); }
 
     private static int parseInt(String s, int def) {
         try { return Integer.parseInt(s.trim()); } catch (Exception e) { return def; }

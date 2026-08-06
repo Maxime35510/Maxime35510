@@ -265,26 +265,35 @@ public final class OverlayController {
             mainBtn.setBackground(Theme.pressable(
                     armed ? Theme.accent(ctx, 10) : Theme.solid(ctx, Theme.DANGER, 10)));
             pauseBtn.setText(paused ? "RESUME" : "PAUSE");
+            pauseBtn.setTextColor(paused ? Theme.OK : Theme.WARN);
+            pauseBtn.setBackground(Theme.pressable(Theme.card(ctx,
+                    paused ? Theme.CARD_HI : Theme.CARD_HI, 9)));
             pauseBtn.setVisibility(armed ? View.GONE : View.VISIBLE);
             skipBtn.setVisibility(armed ? View.GONE : View.VISIBLE);
             title.setText(armed ? "READY" : (paused ? "PAUSED" : "BOOSTING"));
+            dot.setAlpha(paused ? 0.55f : 1f);
         } catch (Throwable ignored) { }
     }
 
     /** Live figures pushed from the service each cycle. */
     public void updateStats(final String time, final int videos, final int matchedPct,
-                            final String screen, final String action,
+                            final int targetPct, final String screen, final String action,
                             final boolean nicheMatch, final String counts) {
         if (!shown || root == null) return;
         post(new Runnable() {
             @Override public void run() {
                 try {
-                    if (mode == Mode.RUNNING) pillText.setText(time);
+                    if (mode == Mode.RUNNING) {
+                        pillText.setText(paused ? "PAUSED  " + time
+                                                : time + "   " + matchedPct + "%");
+                    }
                     timeText.setText(time);
-                    statLine1.setText(videos + " videos  ·  " + matchedPct + "% niche");
+                    statLine1.setText(videos + " videos  ·  " + matchedPct + "% niche"
+                            + "  (target " + targetPct + "%)");
+                    statLine1.setTextColor(matchedPct >= targetPct ? Theme.OK : Theme.MUTED);
                     statLine2.setText(screen.toLowerCase() + "  ·  " + action);
-                    statLine3.setText(counts);
                     statLine2.setTextColor(nicheMatch ? Theme.ACCENT_A : Theme.MUTED);
+                    statLine3.setText(counts);
                 } catch (Throwable ignored) { }
             }
         });
@@ -315,7 +324,10 @@ public final class OverlayController {
     }
 
     private final Runnable autoCollapse = new Runnable() {
-        @Override public void run() { collapse(); }
+        @Override public void run() {
+            if (paused) { bumpCollapse(); return; }   // stay open while paused
+            collapse();
+        }
     };
 
     private void bumpCollapse() {

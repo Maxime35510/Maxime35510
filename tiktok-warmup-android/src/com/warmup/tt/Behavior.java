@@ -99,6 +99,10 @@ public final class Behavior {
     private final int gLike, gSave, gComm, gProf, gRepost, gFollow;
 
     private double progress = 0.0;
+    private boolean aggressive = false;
+
+    /** Set while the feed is below the niche target: skip non-matches even harder. */
+    public void setAggressive(boolean a) { aggressive = a; }
 
     public Behavior(Rates r) {
         this.rates = r;
@@ -137,9 +141,10 @@ public final class Behavior {
 
     /** Not our niche: get past it the way a person flicks past something dull. */
     private int skimWatch() {
-        if (rnd.nextDouble() < NM_INSTANT) {
-            return NM_MIN + rnd.nextInt(NM_MAX - NM_MIN + 1);
-        }
+        double instant = aggressive ? 0.95 : NM_INSTANT;
+        int lo = aggressive ? 700 : NM_MIN;
+        int hi = aggressive ? 1600 : NM_MAX;
+        if (rnd.nextDouble() < instant) return lo + rnd.nextInt(hi - lo + 1);
         return NM_SOFT_MIN + rnd.nextInt(NM_SOFT_MAX - NM_SOFT_MIN + 1);
     }
 
