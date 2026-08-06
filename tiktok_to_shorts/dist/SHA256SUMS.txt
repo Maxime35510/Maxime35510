@@ -1,0 +1,4 @@
+c3c736c5539e40fae7b748f657b42472aa94823897f807f213c51516910ec41e  ShortSmith-universal-release.apk
+bf39a2a320fdfdcfb428a2791c5ab261fd91eafeb0fff235b612bda47a871f51  apks/app-arm64-v8a-release.apk
+076fef4eb3762738e123d7438d828708d69da7dddfa62da5bc256da2209915fa  apks/app-armeabi-v7a-release.apk
+1e123e9d98711cf67333354390af300e635f1ae6a1d30c1b4b34ad3380cb3ee1  apks/app-x86_64-release.apk
