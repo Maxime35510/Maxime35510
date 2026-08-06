@@ -1,4 +1,4 @@
-package net.dastot.shortsmith
+package com.maxime35.shortsmith
 
 import io.flutter.embedding.android.FlutterActivity
 

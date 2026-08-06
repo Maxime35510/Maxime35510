@@ -19,7 +19,7 @@ val keystoreProperties = Properties().apply {
 val hasReleaseSigning = keystoreProperties.containsKey("storeFile")
 
 android {
-    namespace = "net.dastot.shortsmith"
+    namespace = "com.maxime35.shortsmith"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -31,7 +31,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "net.dastot.shortsmith"
+        applicationId = "com.maxime35.shortsmith"
         // video_player and permission_handler require API 21+; the Flutter
         // template default is already higher, so it is used as-is.
         minSdk = flutter.minSdkVersion

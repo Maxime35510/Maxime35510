@@ -17,18 +17,8 @@ import '../../../../core/widgets/app_feedback.dart';
 class AboutScreen extends StatelessWidget {
   const AboutScreen({super.key});
 
-  /// The author's public links, in display order.
+  /// The author's public link. GitHub is the only public identity shown.
   static const List<_AboutLink> _links = [
-    _AboutLink(
-      label: 'Website',
-      url: 'https://louming.dastot.net',
-      icon: Icons.public_rounded,
-    ),
-    _AboutLink(
-      label: 'LinkedIn',
-      url: 'https://www.linkedin.com/in/lou-ming-dastot',
-      icon: Icons.work_outline_rounded,
-    ),
     _AboutLink(
       label: 'GitHub',
       url: 'https://github.com/Maxime35510',
@@ -80,7 +70,7 @@ class AboutScreen extends StatelessWidget {
                       const Icon(Icons.auto_awesome_rounded, size: 40),
                       Gap.h12,
                       Text(
-                        l10n.appName,
+                        'ShortSmith',
                         style: context.textStyles.headlineSmall,
                         textAlign: TextAlign.center,
                       ),

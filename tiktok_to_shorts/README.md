@@ -313,13 +313,13 @@ cd dist && sha256sum -c SHA256SUMS.txt
 
 | Setting | Value |
 |---|---|
-| Application ID | `net.dastot.shortsmith` |
+| Application ID | `com.maxime35.shortsmith` |
 | minSdk / targetSdk / compileSdk | Flutter defaults (24 / 36 / 36) |
 | Permissions | `INTERNET`, `READ_MEDIA_VIDEO` (33+), `READ_EXTERNAL_STORAGE` (≤32) |
 | R8 / resource shrinking | Enabled for release |
 
 Saved videos go to the app's own external directory
-(`Android/data/net.dastot.shortsmith/files/Shortsmith`), which needs **no
+(`Android/data/com.maxime35.shortsmith/files/Shortsmith`), which needs **no
 runtime permission** on any supported Android version and is still visible in
 file managers. File picking goes through the Storage Access Framework, which
 also needs no permission. You can point saving at a different folder in

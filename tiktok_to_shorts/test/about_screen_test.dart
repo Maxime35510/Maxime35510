@@ -14,18 +14,17 @@ void main() {
     home: child,
   );
 
-  testWidgets('shows the required credit and the three exact links', (
+  testWidgets('shows only the ShortSmith credit and the GitHub link', (
     tester,
   ) async {
     await tester.pumpWidget(wrap(const AboutScreen()));
     await tester.pumpAndSettle();
 
+    expect(find.text('ShortSmith'), findsOneWidget);
     expect(find.text('Made by Maxime35'), findsOneWidget);
-    expect(find.text('https://louming.dastot.net'), findsOneWidget);
-    expect(
-      find.text('https://www.linkedin.com/in/lou-ming-dastot'),
-      findsOneWidget,
-    );
     expect(find.text('https://github.com/Maxime35510'), findsOneWidget);
+
+    // Only the GitHub link is shown — no other external links.
+    expect(find.byIcon(Icons.open_in_new_rounded), findsOneWidget);
   });
 }
