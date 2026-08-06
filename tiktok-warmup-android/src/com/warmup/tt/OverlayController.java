@@ -14,17 +14,15 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 
 /**
- * Floating control panel.
+ * Messenger-style floating bubble.
  *
- * Collapsed it's a small draggable pill showing state and time left. Tapped, it opens
- * into a panel with live stats and controls, then auto-collapses so it stops covering
- * the feed.
+ * A round chat-head you can fling around. It snaps to whichever edge is nearer, and
+ * dragging it reveals a dismiss target at the bottom of the screen - drop it there and
+ * the bubble goes away, exactly like closing a Messenger head. Tapping opens a control
+ * panel beside it.
  *
  * Uses TYPE_ACCESSIBILITY_OVERLAY, which an accessibility service may add without the
- * "display over other apps" permission, so there's no extra prompt.
- *
- * Parked on the LEFT edge: the bot's own targets are the right-hand rail (x > 0.78W),
- * the screen centre and the bottom nav, so it can never tap its own controls.
+ * "display over other apps" permission, so there is no extra prompt to grant.
  */
 public final class OverlayController {
 
@@ -39,27 +37,27 @@ public final class OverlayController {
     public enum Mode { ARMED, RUNNING }
 
     private static final long AUTO_COLLAPSE_MS = 7000;
+    private static final int BUBBLE_DP = 58;
+    private static final int DISMISS_DP = 68;
 
     private final Context ctx;
     private final Listener listener;
     private final Handler h = new Handler(Looper.getMainLooper());
 
     private WindowManager wm;
-    private WindowManager.LayoutParams lp;
+    private WindowManager.LayoutParams lp, dismissLp;
     private LinearLayout root;
 
-    // collapsed
-    private LinearLayout pill;
-    private View dot;
-    private TextView pillText;
+    private TextView bubble;
+    private View dismissView;
 
-    // expanded
     private LinearLayout panel;
     private TextView title, timeText, statLine1, statLine2, statLine3;
     private TextView pauseBtn, skipBtn, mainBtn;
 
     private Mode mode = Mode.ARMED;
-    private boolean shown = false, expanded = false, paused = false;
+    private boolean shown = false, expanded = false, paused = false, dragging = false;
+    private int screenW, screenH;
 
     public OverlayController(Context ctx, Listener listener) {
         this.ctx = ctx;
@@ -72,10 +70,12 @@ public final class OverlayController {
         if (shown) return;
         try {
             wm = (WindowManager) ctx.getSystemService(Context.WINDOW_SERVICE);
+            screenW = ctx.getResources().getDisplayMetrics().widthPixels;
+            screenH = ctx.getResources().getDisplayMetrics().heightPixels;
 
             root = new LinearLayout(ctx);
             root.setOrientation(LinearLayout.VERTICAL);
-            root.addView(buildPill());
+            root.addView(buildBubble());
             root.addView(buildPanel());
             panel.setVisibility(View.GONE);
 
@@ -87,8 +87,8 @@ public final class OverlayController {
                             | WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
                     PixelFormat.TRANSLUCENT);
             lp.gravity = Gravity.TOP | Gravity.START;
-            lp.x = Theme.dp(ctx, 8);
-            lp.y = ctx.getResources().getDisplayMetrics().heightPixels / 2;
+            lp.x = Theme.dp(ctx, 10);
+            lp.y = (int) (screenH * 0.45);
 
             wm.addView(root, lp);
             shown = true;
@@ -98,28 +98,17 @@ public final class OverlayController {
         }
     }
 
-    private LinearLayout buildPill() {
-        pill = new LinearLayout(ctx);
-        pill.setOrientation(LinearLayout.HORIZONTAL);
-        pill.setGravity(Gravity.CENTER_VERTICAL);
-        int ph = Theme.dp(ctx, 13), pv = Theme.dp(ctx, 10);
-        pill.setPadding(ph, pv, ph, pv);
-        pill.setBackground(Theme.solid(ctx, Theme.fade(Theme.BG, 0xEE), 24));
-
-        dot = new View(ctx);
-        dot.setBackground(Theme.accentCircle(ctx));
-        LinearLayout.LayoutParams dlp = new LinearLayout.LayoutParams(
-                Theme.dp(ctx, 11), Theme.dp(ctx, 11));
-        dlp.rightMargin = Theme.dp(ctx, 9);
-        pill.addView(dot, dlp);
-
-        pillText = new TextView(ctx);
-        Theme.style(pillText, 13f, Theme.TEXT, true);
-        pillText.setText("START");
-        pill.addView(pillText);
-
-        pill.setOnTouchListener(new Dragger());
-        return pill;
+    private TextView buildBubble() {
+        bubble = new TextView(ctx);
+        bubble.setGravity(Gravity.CENTER);
+        Theme.style(bubble, 16f, 0xFF07131A, true);
+        bubble.setText("▶");
+        bubble.setBackground(Theme.accentCircle(ctx));
+        int d = Theme.dp(ctx, BUBBLE_DP);
+        bubble.setLayoutParams(new LinearLayout.LayoutParams(d, d));
+        bubble.setElevation(Theme.dp(ctx, 8));
+        bubble.setOnTouchListener(new Dragger());
+        return bubble;
     }
 
     private LinearLayout buildPanel() {
@@ -127,23 +116,21 @@ public final class OverlayController {
         panel.setOrientation(LinearLayout.VERTICAL);
         int q = Theme.dp(ctx, 14);
         panel.setPadding(q, q, q, q);
-        panel.setBackground(Theme.card(ctx, Theme.fade(Theme.CARD, 0xF5), 16));
+        panel.setBackground(Theme.card(ctx, Theme.fade(Theme.CARD, 0xF7), 16));
         LinearLayout.LayoutParams plp = new LinearLayout.LayoutParams(
-                Theme.dp(ctx, 208), ViewGroup.LayoutParams.WRAP_CONTENT);
-        plp.topMargin = Theme.dp(ctx, 6);
+                Theme.dp(ctx, 210), ViewGroup.LayoutParams.WRAP_CONTENT);
+        plp.topMargin = Theme.dp(ctx, 8);
         panel.setLayoutParams(plp);
 
         LinearLayout head = new LinearLayout(ctx);
         head.setOrientation(LinearLayout.HORIZONTAL);
         head.setGravity(Gravity.CENTER_VERTICAL);
-
         title = new TextView(ctx);
         Theme.style(title, 11f, Theme.FAINT, true);
         title.setLetterSpacing(0.12f);
         title.setText("BOOST");
         head.addView(title, new LinearLayout.LayoutParams(
                 0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-
         timeText = new TextView(ctx);
         Theme.style(timeText, 15f, Theme.TEXT, true);
         head.addView(timeText);
@@ -200,11 +187,10 @@ public final class OverlayController {
         TextView hint = new TextView(ctx);
         Theme.style(hint, 9f, Theme.FAINT, false);
         hint.setGravity(Gravity.CENTER);
-        hint.setText("long-press the pill to hide");
+        hint.setText("drag the bubble down to close");
         LinearLayout.LayoutParams hlp = wide();
         hlp.topMargin = Theme.dp(ctx, 8);
         panel.addView(hint, hlp);
-
         return panel;
     }
 
@@ -238,6 +224,49 @@ public final class OverlayController {
         return WindowManager.LayoutParams.TYPE_SYSTEM_ALERT;
     }
 
+    // ------------------------------------------------------- dismiss target
+
+    private void showDismiss() {
+        if (dismissView != null) return;
+        try {
+            TextView x = new TextView(ctx);
+            x.setText("✕");
+            x.setGravity(Gravity.CENTER);
+            Theme.style(x, 22f, 0xFFFFFFFF, true);
+            x.setBackground(Theme.solid(ctx, Theme.fade(Theme.DANGER, 0xDD), 999));
+            int d = Theme.dp(ctx, DISMISS_DP);
+
+            dismissLp = new WindowManager.LayoutParams(d, d, overlayType(),
+                    WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+                            | WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
+                            | WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE,
+                    PixelFormat.TRANSLUCENT);
+            dismissLp.gravity = Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL;
+            dismissLp.y = Theme.dp(ctx, 80);
+            wm.addView(x, dismissLp);
+            dismissView = x;
+        } catch (Throwable ignored) { }
+    }
+
+    private void hideDismiss() {
+        if (dismissView == null) return;
+        try { wm.removeView(dismissView); } catch (Throwable ignored) { }
+        dismissView = null;
+    }
+
+    /** Screen-space centre of the dismiss target. */
+    private int dismissCx() { return screenW / 2; }
+    private int dismissCy() {
+        return screenH - Theme.dp(ctx, 80) - Theme.dp(ctx, DISMISS_DP) / 2;
+    }
+
+    private boolean overDismiss() {
+        int bx = lp.x + Theme.dp(ctx, BUBBLE_DP) / 2;
+        int by = lp.y + Theme.dp(ctx, BUBBLE_DP) / 2;
+        int dx = bx - dismissCx(), dy = by - dismissCy();
+        return Math.sqrt(dx * dx + dy * dy) < Theme.dp(ctx, 90);
+    }
+
     // ----------------------------------------------------------------- state
 
     public void setMode(Mode m) {
@@ -258,39 +287,42 @@ public final class OverlayController {
         if (!shown || root == null) return;
         try {
             boolean armed = mode == Mode.ARMED;
-            dot.setBackground(armed ? Theme.accentCircle(ctx)
-                    : (paused ? Theme.solid(ctx, Theme.WARN, 99) : Theme.dangerCircle(ctx)));
-            if (armed) pillText.setText("START");
+            bubble.setBackground(armed ? Theme.accentCircle(ctx)
+                    : (paused ? Theme.solid(ctx, Theme.WARN, 999)
+                              : Theme.dangerCircle(ctx)));
+            if (armed) bubble.setText("▶");
+            else if (paused) bubble.setText("❚❚");
+
             mainBtn.setText(armed ? "START" : "STOP");
             mainBtn.setBackground(Theme.pressable(
                     armed ? Theme.accent(ctx, 10) : Theme.solid(ctx, Theme.DANGER, 10)));
             pauseBtn.setText(paused ? "RESUME" : "PAUSE");
             pauseBtn.setTextColor(paused ? Theme.OK : Theme.WARN);
-            pauseBtn.setBackground(Theme.pressable(Theme.card(ctx,
-                    paused ? Theme.CARD_HI : Theme.CARD_HI, 9)));
             pauseBtn.setVisibility(armed ? View.GONE : View.VISIBLE);
             skipBtn.setVisibility(armed ? View.GONE : View.VISIBLE);
             title.setText(armed ? "READY" : (paused ? "PAUSED" : "BOOSTING"));
-            dot.setAlpha(paused ? 0.55f : 1f);
         } catch (Throwable ignored) { }
     }
 
-    /** Live figures pushed from the service each cycle. */
     public void updateStats(final String time, final int videos, final int matchedPct,
                             final int targetPct, final String screen, final String action,
-                            final boolean nicheMatch, final String counts) {
+                            final boolean nicheMatch, final String counts,
+                            final boolean scoreReady) {
         if (!shown || root == null) return;
         post(new Runnable() {
             @Override public void run() {
                 try {
-                    if (mode == Mode.RUNNING) {
-                        pillText.setText(paused ? "PAUSED  " + time
-                                                : time + "   " + matchedPct + "%");
+                    if (mode == Mode.RUNNING && !paused) {
+                        // Minutes left, so the bubble stays legible at this size.
+                        int colon = time.indexOf(':');
+                        bubble.setText(colon > 0 ? time.substring(0, colon) : time);
                     }
                     timeText.setText(time);
-                    statLine1.setText(videos + " videos  ·  " + matchedPct + "% niche"
+                    statLine1.setText(videos + " videos  ·  "
+                            + (scoreReady ? matchedPct + "% niche" : "scoring…")
                             + "  (target " + targetPct + "%)");
-                    statLine1.setTextColor(matchedPct >= targetPct ? Theme.OK : Theme.MUTED);
+                    statLine1.setTextColor(scoreReady && matchedPct >= targetPct
+                            ? Theme.OK : Theme.MUTED);
                     statLine2.setText(screen.toLowerCase() + "  ·  " + action);
                     statLine2.setTextColor(nicheMatch ? Theme.ACCENT_A : Theme.MUTED);
                     statLine3.setText(counts);
@@ -305,9 +337,7 @@ public final class OverlayController {
 
     // -------------------------------------------------------------- expanding
 
-    private void toggle() {
-        if (expanded) collapse(); else expand();
-    }
+    private void toggle() { if (expanded) collapse(); else expand(); }
 
     private void expand() {
         if (!shown) return;
@@ -325,7 +355,7 @@ public final class OverlayController {
 
     private final Runnable autoCollapse = new Runnable() {
         @Override public void run() {
-            if (paused) { bumpCollapse(); return; }   // stay open while paused
+            if (paused) { bumpCollapse(); return; }
             collapse();
         }
     };
@@ -337,6 +367,7 @@ public final class OverlayController {
 
     public void hide() {
         h.removeCallbacksAndMessages(null);
+        hideDismiss();
         if (!shown || root == null) return;
         try { wm.removeView(root); } catch (Throwable ignored) { }
         root = null;
@@ -344,12 +375,10 @@ public final class OverlayController {
         expanded = false;
     }
 
-    /** Drag to move, tap to open the panel, long-press to hide entirely. */
+    /** Drag to move, drop on the ✕ to close, tap to open the panel. */
     private final class Dragger implements View.OnTouchListener {
-        private static final long LONG_PRESS_MS = 650;
         private int startX, startY;
         private float touchX, touchY;
-        private long downAt;
         private boolean moved;
 
         @Override public boolean onTouch(View v, MotionEvent e) {
@@ -357,32 +386,63 @@ public final class OverlayController {
                 case MotionEvent.ACTION_DOWN:
                     startX = lp.x; startY = lp.y;
                     touchX = e.getRawX(); touchY = e.getRawY();
-                    downAt = System.currentTimeMillis();
                     moved = false;
-                    v.setAlpha(0.7f);
+                    v.animate().scaleX(0.9f).scaleY(0.9f).setDuration(90).start();
                     return true;
+
                 case MotionEvent.ACTION_MOVE:
                     int dx = (int) (e.getRawX() - touchX);
                     int dy = (int) (e.getRawY() - touchY);
-                    if (Math.abs(dx) > Theme.dp(ctx, 6) || Math.abs(dy) > Theme.dp(ctx, 6)) {
+                    if (!moved && (Math.abs(dx) > Theme.dp(ctx, 8)
+                                || Math.abs(dy) > Theme.dp(ctx, 8))) {
                         moved = true;
+                        dragging = true;
+                        collapse();
+                        showDismiss();
                     }
                     lp.x = startX + dx;
                     lp.y = startY + dy;
                     try { wm.updateViewLayout(root, lp); } catch (Throwable ignored) { }
+                    if (dragging && dismissView != null) {
+                        boolean near = overDismiss();
+                        dismissView.setScaleX(near ? 1.25f : 1f);
+                        dismissView.setScaleY(near ? 1.25f : 1f);
+                        v.setAlpha(near ? 0.45f : 1f);
+                    }
                     return true;
+
                 case MotionEvent.ACTION_UP:
                 case MotionEvent.ACTION_CANCEL:
+                    v.animate().scaleX(1f).scaleY(1f).setDuration(90).start();
                     v.setAlpha(1f);
-                    if (moved || listener == null) return true;
-                    if (System.currentTimeMillis() - downAt >= LONG_PRESS_MS) {
-                        listener.onOverlayDismiss();
-                    } else {
-                        toggle();
+                    if (dragging && overDismiss()) {
+                        hideDismiss();
+                        dragging = false;
+                        if (listener != null) listener.onOverlayDismiss();
+                        return true;
                     }
+                    hideDismiss();
+                    dragging = false;
+                    if (moved) { snapToEdge(); return true; }
+                    toggle();
                     return true;
             }
             return false;
         }
+    }
+
+    /** Settle against whichever side is closer, like a chat head. */
+    private void snapToEdge() {
+        try {
+            int size = Theme.dp(ctx, BUBBLE_DP);
+            int margin = Theme.dp(ctx, 10);
+            int centre = lp.x + size / 2;
+            lp.x = centre < screenW / 2 ? margin : screenW - size - margin;
+            if (lp.y < Theme.dp(ctx, 40)) lp.y = Theme.dp(ctx, 40);
+            if (lp.y > screenH - size - Theme.dp(ctx, 60)) {
+                lp.y = screenH - size - Theme.dp(ctx, 60);
+            }
+            wm.updateViewLayout(root, lp);
+        } catch (Throwable ignored) { }
     }
 }

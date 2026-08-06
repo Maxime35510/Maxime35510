@@ -41,13 +41,14 @@ public final class ResearchLog {
         file = new File(ctx.getFilesDir(), FILE);
     }
 
-    /** time, author, caption, sound, likes, matched */
+    /** time, author, caption, sound, likes, matched, fromSearch */
     public void record(String author, String caption, String sound,
-                       long likes, boolean matched) {
+                       long likes, boolean matched, boolean fromSearch) {
         if (author.length() == 0 && caption.length() == 0 && sound.length() == 0) return;
         String line = System.currentTimeMillis() + "\t"
                 + clean(author) + "\t" + clean(caption) + "\t" + clean(sound) + "\t"
-                + likes + "\t" + (matched ? "1" : "0") + "\n";
+                + likes + "\t" + (matched ? "1" : "0")
+                + "\t" + (fromSearch ? "1" : "0") + "\n";
         FileOutputStream out = null;
         try {
             out = new FileOutputStream(file, true);
@@ -96,16 +97,29 @@ public final class ResearchLog {
 
     public int size() { return rows().size(); }
 
-    public int matchedCount() {
-        int n = 0;
-        for (String[] r : rows()) if (r.length >= 6 && "1".equals(r[5])) n++;
-        return n;
+    private static boolean fromSearch(String[] r) {
+        return r.length >= 7 && "1".equals(r[6]);
     }
 
-    /** Share of the feed that is actually your niche - the number to watch. */
+    /**
+     * For You videos only. Search results are niche by construction, so counting them
+     * would inflate the figure without the feed having changed.
+     */
     public int matchedPercent() {
-        int total = size();
-        return total == 0 ? 0 : (int) Math.round(matchedCount() * 100.0 / total);
+        int total = 0, matched = 0;
+        for (String[] r : rows()) {
+            if (fromSearch(r)) continue;
+            total++;
+            if (r.length >= 6 && "1".equals(r[5])) matched++;
+        }
+        return total == 0 ? -1 : (int) Math.round(matched * 100.0 / total);
+    }
+
+    /** How many For You videos have been scored - the sample behind matchedPercent. */
+    public int scoredCount() {
+        int n = 0;
+        for (String[] r : rows()) if (!fromSearch(r)) n++;
+        return n;
     }
 
     private static long likesOf(String[] r) {

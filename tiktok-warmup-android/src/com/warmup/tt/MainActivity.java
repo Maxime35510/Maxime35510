@@ -46,7 +46,8 @@ public class MainActivity extends Activity {
     private SeekBar targetBar, levelBar;
     private TextView levelLabel, levelDesc, rateSummary, nicheStatus, durationNote, gapLabel;
     private SeekBar gapMinBar, gapMaxBar;
-    private TextView feedView, diagView, statsView, researchView, actionReport, suggestView;
+    private TextView feedView, diagView, statsView, researchView, actionReport,
+                     suggestView, sessionView;
     private EditText durationInput, nicheInput;
     private final Map<String, EditText> rateInputs = new LinkedHashMap<String, EditText>();
     private boolean suppressRateWatch = false;
@@ -121,16 +122,14 @@ public class MainActivity extends Activity {
         bar.addView(t);
 
         serviceWarn = new TextView(this);
-        serviceWarn.setText("Accessibility service off — tap to enable");
+        serviceWarn.setText("Accessibility service off — tap to set up");
         Theme.style(serviceWarn, 12f, 0xFF1A1200, true);
         serviceWarn.setBackground(Theme.solid(this, Theme.WARN, 10));
         int q = Theme.dp(this, 10);
         serviceWarn.setPadding(q, q, q, q);
         serviceWarn.setGravity(Gravity.CENTER);
         serviceWarn.setOnClickListener(new View.OnClickListener() {
-            @Override public void onClick(View v) {
-                startActivity(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS));
-            }
+            @Override public void onClick(View v) { showSetup(); }
         });
         LinearLayout.LayoutParams lp = fill();
         lp.topMargin = Theme.dp(this, 10);
@@ -275,11 +274,37 @@ public class MainActivity extends Activity {
         barRest.requestLayout();
     }
 
+    /** Walk through enabling the service - the step everyone gets stuck on. */
+    private void showSetup() {
+        new android.app.AlertDialog.Builder(this)
+            .setTitle("Enable TikTok Boost")
+            .setMessage("Boost reads the screen to tell which videos are in your "
+                    + "niche, and taps for you. Android puts that behind "
+                    + "Accessibility.\n\n"
+                    + "1.  Tap Open settings below\n"
+                    + "2.  Find Installed apps  (or Downloaded services)\n"
+                    + "3.  Choose TikTok Boost\n"
+                    + "4.  Turn it on and confirm\n"
+                    + "5.  Come back here\n\n"
+                    + "Some phones also ask you to allow restricted settings — if "
+                    + "the toggle is greyed out, open App info for TikTok Boost, tap "
+                    + "the ⋮ menu, and choose Allow restricted settings.")
+            .setPositiveButton("Open settings",
+                    new android.content.DialogInterface.OnClickListener() {
+                @Override public void onClick(android.content.DialogInterface d, int w) {
+                    try {
+                        startActivity(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS));
+                    } catch (Throwable t) { toast("Couldn't open settings"); }
+                }
+            })
+            .setNegativeButton("Later", null)
+            .show();
+    }
+
     private void onBigButton() {
         WarmupService svc = WarmupService.instance;
         if (svc == null) {
-            toast("Enable the accessibility service first");
-            startActivity(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS));
+            showSetup();
             return;
         }
         if (svc.isRunning() || svc.isArmed()) {
@@ -564,6 +589,15 @@ public class MainActivity extends Activity {
         actionReport.setLineSpacing(0f, 1.3f);
         ar.addView(actionReport, fill());
 
+        LinearLayout sh = card(root, "Sessions");
+        sh.addView(hint("Whether this climbs across sessions is the only real evidence "
+                + "the feed is retraining."));
+        sessionView = new TextView(this);
+        Theme.style(sessionView, 12f, Theme.TEXT, false);
+        sessionView.setTypeface(Typeface.MONOSPACE);
+        sessionView.setLineSpacing(0f, 1.3f);
+        sh.addView(sessionView, fill());
+
         LinearLayout st = card(root, "Your account");
         statsView = new TextView(this);
         Theme.style(statsView, 12f, Theme.TEXT, false);
@@ -670,22 +704,34 @@ public class MainActivity extends Activity {
         int target = prefs.nicheTarget();
 
         if (tab == 0) {
-            // A percentage off three videos is noise. Wait for a real sample.
+            // Three different things used to land in this slot: the live score, the
+            // lifetime research figure, and nothing at all. Now it always says which.
             if (running && !svc.scoreReady()) {
                 nicheNow.setText("—");
                 nicheNow.setTextColor(Theme.MUTED);
                 nicheCaption.setText("scoring… " + svc.scoreSample() + " of "
                         + WarmupService.MIN_SAMPLE + " For You videos needed");
                 setBar(0, target);
-            } else {
-                int now = running ? svc.rollingPercent()
-                                  : new ResearchLog(this).matchedPercent();
+            } else if (running) {
+                int now = svc.rollingPercent();
                 nicheNow.setText(now + "%");
                 nicheNow.setTextColor(now >= target ? Theme.OK : Theme.TEXT);
-                nicheCaption.setText(running
-                        ? "of the last " + svc.scoreSample() + " For You videos"
-                        : "of everything seen so far");
+                nicheCaption.setText("live · last " + svc.scoreSample()
+                        + " For You videos");
                 setBar(now, target);
+            } else {
+                int last = new SessionLog(this).lastScore();
+                if (last >= 0) {
+                    nicheNow.setText(last + "%");
+                    nicheNow.setTextColor(last >= target ? Theme.OK : Theme.TEXT);
+                    nicheCaption.setText("last finished session");
+                    setBar(last, target);
+                } else {
+                    nicheNow.setText("—");
+                    nicheNow.setTextColor(Theme.MUTED);
+                    nicheCaption.setText("no finished session yet");
+                    setBar(0, target);
+                }
             }
 
             if (!connected) {
@@ -704,10 +750,11 @@ public class MainActivity extends Activity {
                                   : "tap here to stop and remove the bubble"));
             } else if (armed) {
                 bigButton.setText("ARMED");
-                bigButton.setBackground(Theme.pressable(Theme.dangerCircle(this)));
+                bigButton.setBackground(Theme.pressable(
+                        Theme.solid(this, Theme.WARN, 999)));
                 statusLine.setText("Waiting");
                 subStatus.setText("Open TikTok and tap the bubble\n"
-                        + "tap here to stop and remove it");
+                        + "drag it onto the ✕ to close, or tap here");
             } else {
                 bigButton.setText("START");
                 bigButton.setBackground(Theme.pressable(Theme.accentCircle(this)));
@@ -727,6 +774,7 @@ public class MainActivity extends Activity {
             }
             feedView.setText(sb.length() == 0 ? "nothing yet" : sb.toString().trim());
             actionReport.setText(ActionStats.report());
+            sessionView.setText(new SessionLog(this).summary(6));
             statsView.setText(new SelfStats(this).summary());
 
             ResearchLog r = new ResearchLog(this);
@@ -735,8 +783,11 @@ public class MainActivity extends Activity {
             suggestView.setText(sug.isEmpty() ? "nothing yet — needs a few sessions"
                                               : join(sug));
             StringBuilder rb = new StringBuilder();
-            rb.append(r.size()).append(" videos seen · ")
-              .append(r.matchedPercent()).append("% matched\n");
+            int life = r.matchedPercent();
+            rb.append(r.size()).append(" logged · ").append(r.scoredCount())
+              .append(" scored from For You");
+            if (life >= 0) rb.append(" · ").append(life).append("% matched");
+            rb.append('\n');
             appendList(rb, "Hashtags on the best niche videos", r.topHashtags(6));
             appendList(rb, "Sounds", r.topSounds(4));
             appendList(rb, "Creators worth studying", r.topAuthors(4));

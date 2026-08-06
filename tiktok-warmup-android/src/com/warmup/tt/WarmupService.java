@@ -42,6 +42,7 @@ public class WarmupService extends AccessibilityService implements OverlayContro
     private Niche niche;
     private ResearchLog research;
     private SelfStats selfStats;
+    private SessionLog sessions;
     private OverlayController overlay;
 
     private boolean running = false, paused = false, userPaused = false;
@@ -63,6 +64,7 @@ public class WarmupService extends AccessibilityService implements OverlayContro
     private int recentIdx = 0, recentN = 0;
     private long pauseStart = 0;
     private int plannedMinutes = 0;
+    private boolean targetHit = false;
 
     private int screenW = 1080, screenH = 2400;
 
@@ -81,6 +83,7 @@ public class WarmupService extends AccessibilityService implements OverlayContro
         niche = new Niche(prefs.nicheRaw());
         research = new ResearchLog(this);
         selfStats = new SelfStats(this);
+        sessions = new SessionLog(this);
     }
 
     @Override
@@ -144,6 +147,7 @@ public class WarmupService extends AccessibilityService implements OverlayContro
         recoveries = unknownScreens = pausedCycles = 0;
         backUnsafe = false;
         statsDoneThisSession = false;
+        targetHit = false;
         inSearchFeed = false;
         forcedMatch = 0;
         unreadable = 0;
@@ -181,7 +185,13 @@ public class WarmupService extends AccessibilityService implements OverlayContro
 
     public void stopSession(String reason) {
         boolean was = running;
-        if (was) ActionLog.add("session", "stopped (" + reason + ")", false);
+        if (was) {
+            ActionLog.add("session", "stopped (" + reason + ")", false);
+            if (scoreReady() && sessions != null) {
+                sessions.record(plannedMinutes, videoCount, rollingPercent(),
+                        likes, follows);
+            }
+        }
         running = false;
         paused = userPaused = false;
         pauseStart = 0;
@@ -321,7 +331,8 @@ public class WarmupService extends AccessibilityService implements OverlayContro
         String time = String.format("%d:%02d", s / 60, s % 60);
         if (overlay != null && overlay.isShown()) {
             overlay.updateStats(time, videoCount, rollingPercent(), prefs.nicheTarget(),
-                    detected, lastAction, lastMatch == Behavior.Match.YES, countsLine());
+                    detected, lastAction, lastMatch == Behavior.Match.YES, countsLine(),
+                    scoreReady());
         }
         long now = System.currentTimeMillis();
         if (now - lastNotify > 2500) {
@@ -456,10 +467,15 @@ public class WarmupService extends AccessibilityService implements OverlayContro
         // without your actual feed improving - measuring the push, not the result.
         if (!fromSearch) pushMatch(match == Behavior.Match.YES);
         behavior.setAggressive(belowTarget());
+        if (!targetHit && scoreReady() && rollingPercent() >= prefs.nicheTarget()) {
+            targetHit = true;
+            ActionLog.add("target", "reached " + rollingPercent() + "% of the feed", false);
+            notify("Target reached", rollingPercent() + "% of your feed is your niche");
+        }
 
         if (prefs.research()) {
             research.record(row[0], row[1], row[2], likeCount,
-                    match == Behavior.Match.YES);
+                    match == Behavior.Match.YES, fromSearch);
         }
 
         final int watched = behavior.watchTimeMs(match);
