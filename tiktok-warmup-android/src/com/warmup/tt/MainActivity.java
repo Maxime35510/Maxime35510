@@ -112,7 +112,7 @@ public class MainActivity extends Activity {
         LinearLayout bar = new LinearLayout(this);
         bar.setOrientation(LinearLayout.VERTICAL);
         int p = Theme.dp(this, 16);
-        bar.setPadding(p, Theme.dp(this, 20), p, Theme.dp(this, 4));
+        bar.setPadding(p, Theme.dp(this, 38), p, Theme.dp(this, 4));
 
         TextView t = new TextView(this);
         t.setText("TikTok Boost");
@@ -148,8 +148,8 @@ public class MainActivity extends Activity {
             TextView t = new TextView(this);
             t.setText(TABS[i]);
             t.setGravity(Gravity.CENTER);
-            t.setPadding(0, Theme.dp(this, 10), 0, Theme.dp(this, 10));
-            Theme.style(t, 11f, Theme.MUTED, true);
+            t.setPadding(0, Theme.dp(this, 13), 0, Theme.dp(this, 13));
+            Theme.style(t, 12f, Theme.MUTED, true);
             t.setLetterSpacing(0.08f);
             t.setOnClickListener(new View.OnClickListener() {
                 @Override public void onClick(View v) { selectTab(idx); }
@@ -707,13 +707,15 @@ public class MainActivity extends Activity {
             // Three different things used to land in this slot: the live score, the
             // lifetime research figure, and nothing at all. Now it always says which.
             if (running && !svc.scoreReady()) {
-                nicheNow.setText("—");
+                nicheNow.setTextSize(30f);
+                nicheNow.setText("scoring");
                 nicheNow.setTextColor(Theme.MUTED);
-                nicheCaption.setText("scoring… " + svc.scoreSample() + " of "
+                nicheCaption.setText(svc.scoreSample() + " of "
                         + WarmupService.MIN_SAMPLE + " For You videos needed");
                 setBar(0, target);
             } else if (running) {
                 int now = svc.rollingPercent();
+                nicheNow.setTextSize(52f);
                 nicheNow.setText(now + "%");
                 nicheNow.setTextColor(now >= target ? Theme.OK : Theme.TEXT);
                 nicheCaption.setText("live · last " + svc.scoreSample()
@@ -722,14 +724,16 @@ public class MainActivity extends Activity {
             } else {
                 int last = new SessionLog(this).lastScore();
                 if (last >= 0) {
+                    nicheNow.setTextSize(52f);
                     nicheNow.setText(last + "%");
                     nicheNow.setTextColor(last >= target ? Theme.OK : Theme.TEXT);
                     nicheCaption.setText("last finished session");
                     setBar(last, target);
                 } else {
-                    nicheNow.setText("—");
+                    nicheNow.setTextSize(26f);
+                    nicheNow.setText("Not measured yet");
                     nicheNow.setTextColor(Theme.MUTED);
-                    nicheCaption.setText("no finished session yet");
+                    nicheCaption.setText("run a session to score your For You page");
                     setBar(0, target);
                 }
             }
